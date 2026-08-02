@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>FPL Predictor</title>
+<style>
+  :root{--bg:#0f1420;--card:#182033;--line:#26304a;--txt:#e8edf7;--mut:#94a3c0;--acc:#37d67a;--acc2:#5b9dff;}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  header{padding:22px 18px 8px;max-width:1000px;margin:0 auto}
+  h1{margin:0;font-size:22px;letter-spacing:.2px}
+  .sub{color:var(--mut);font-size:13px;margin-top:4px}
+  main{max-width:1000px;margin:0 auto;padding:8px 18px 60px}
+  nav{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}
+  nav button{background:var(--card);color:var(--mut);border:1px solid var(--line);padding:8px 13px;border-radius:9px;cursor:pointer;font-size:13px}
+  nav button.active{color:var(--txt);border-color:var(--acc2);background:#1d2740}
+  .ctl{margin-left:auto;color:var(--mut);font-size:13px;display:flex;align-items:center;gap:6px}
+  select,input{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:9px 0}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .nm{font-weight:600}
+  .pill{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:20px;padding:1px 8px}
+  .pts{margin-left:auto;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
+  .meta{color:var(--mut);font-size:12.5px;margin-top:2px}
+  .why{background:transparent;border:1px solid var(--line);color:var(--acc2);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12.5px}
+  .exp{margin-top:10px;padding:10px 12px;background:#111a2b;border:1px solid var(--line);border-radius:9px;font-size:14px}
+  .exp .fb{margin-top:8px;display:flex;gap:8px;align-items:center;color:var(--mut);font-size:12px}
+  .exp .fb button{background:transparent;border:1px solid var(--line);border-radius:7px;padding:3px 9px;cursor:pointer;font-size:14px}
+  .muted{color:var(--mut)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:9px}
+  .xi h3{margin:14px 0 6px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .cap{color:#ffcf5b;font-size:11px;border-color:#5a4a1e}
+  .loading{color:var(--mut);padding:30px 0;text-align:center}
+  a{color:var(--acc2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚽ FPL Predictor</h1>
+  <div class="sub" id="sub">Loading model…</div>
+</header>
+<main>
+  <nav>
+    <button data-tab="picks" class="active">Top picks</button>
+    <button data-tab="squad">Best XI</button>
+    <button data-tab="horizon">Fixture runs</button>
+    <button data-tab="value">Value &amp; differentials</button>
+    <span class="ctl" id="ctl"></span>
+  </nav>
+  <div id="view"><div class="loading">Loading…</div></div>
+</main>
+
+<script>
+const API = window.API_BASE || "";
+const view = document.getElementById("view");
+const sub  = document.getElementById("sub");
+const ctl  = document.getElementById("ctl");
+let TAB = "picks";
+
+const g = (u)=>fetch(API+u,{credentials:"include"}).then(r=>r.json());
+const post = (u,b)=>fetch(API+u,{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify(b||{})}).then(r=>r.json());
+const esc = s => (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+async function boot(){
+  try{ const h = await g("/health");
+    const m = h.metrics||{};
+    sub.innerHTML = `Predicting <b>GW${h.next_gw}</b> · model MAE ${m.model_mae?.toFixed(2)??"—"} vs baseline ${m.baseline_mae?.toFixed(2)??"—"} · ${h.season_started?"live season":"pre-season (last seasons' form)"}`;
+  }catch(e){ sub.textContent="API not reachable."; }
+  render();
+}
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  TAB=b.dataset.tab;
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));
+  render();
+});
+
+function playerCard(p, extra=""){
+  const owned = p.owned_pct!=null?`${p.owned_pct}% owned`:"";
+  return `<div class="card"><div class="row">
+      <span class="nm">${esc(p.web_name)}</span>
+      <span class="pill">${esc(p.position)}</span>
+      <span class="pill">${esc(p.team_name)}</span>
+      <span class="pill">£${p.price}m</span>
+      <span class="pts">${(p.pred_points??p.horizon_points??0).toFixed? (p.pred_points??p.horizon_points).toFixed(2): (p.pred_points??p.horizon_points)}</span>
+    </div>
+    <div class="meta">${extra}${owned?` · ${owned}`:""}</div>
+    <div class="row" style="margin-top:8px">
+      <button class="why" onclick="why(${p.player_id},this)">Why this pick?</button>
+    </div>
+    <div class="exp-slot"></div></div>`;
+}
+
+window.why = async (pid, btn)=>{
+  const slot = btn.closest(".card").querySelector(".exp-slot");
+  slot.innerHTML = `<div class="exp muted">Thinking…</div>`;
+  const r = await post(`/api/player/${pid}/explain`,{});
+  slot.innerHTML = `<div class="exp">${esc(r.text)}
+     <div class="fb"><span>Helpful?</span>
+       <button onclick="fb(${pid},true,this)">👍</button>
+       <button onclick="fb(${pid},false,this)">👎</button>
+       <span class="var muted"></span></div></div>`;
+};
+window.fb = async (pid, helpful, btn)=>{
+  await post("/api/feedback",{player_id:pid,helpful});
+  btn.closest(".fb").querySelector(".var").textContent = "thanks!";
+};
+
+async function render(){
+  ctl.innerHTML=""; view.innerHTML=`<div class="loading">Loading…</div>`;
+  try{
+    if(TAB==="picks"){
+      const d = await g("/api/predictions?limit=40");
+      view.innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`proj ${p.pred_points} pts`)).join("")+`</div>`;
+    }
+    else if(TAB==="squad"){
+      const d = await g("/api/squad");
+      const xi = d.squad.filter(p=>p.is_start), bench=d.squad.filter(p=>!p.is_start);
+      const cards = a=>a.map(p=>playerCard(p, (p.is_cap?`<span class="pill cap">CAPTAIN</span> `:"")+`proj ${p.pred_points} pts`)).join("");
+      view.innerHTML = `<div class="card"><b>Optimal squad for GW${d.next_gw}</b> · cost £${d.cost}m · captain ${esc(d.captain)} · projected XI ${d.predicted_xi_points} pts</div>
+        <div class="xi"><h3>Starting XI</h3><div class="grid">${cards(xi)}</div>
+        <h3>Bench</h3><div class="grid">${cards(bench)}</div></div>`;
+    }
+    else if(TAB==="horizon"){
+      ctl.innerHTML = `Weeks: <select id="nw">${[3,4,5,6].map(n=>`<option ${n===5?"selected":""}>${n}</option>`).join("")}</select>`;
+      const draw = async ()=>{
+        const n = document.getElementById("nw").value;
+        const box = document.getElementById("hbox"); if(box) box.innerHTML="Loading…";
+        const d = await g(`/api/horizon?n=${n}&limit=40`);
+        document.getElementById("hbox").innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`${p.horizon_points} pts over ${p.games} games · ${p.per_game}/game`)).join("")+`</div>`;
+      };
+      view.innerHTML = `<div class="card muted">Total predicted points over the next few gameweeks (doubles and blanks handled).</div><div id="hbox"></div>`;
+      document.getElementById("nw").onchange = draw; draw();
+    }
+    else if(TAB==="value"){
+      const d = await g("/api/value");
+      const list = a=>`<div class="grid">`+a.map(p=>playerCard(p, p.pts_per_million?`${p.pts_per_million} pts per £m`:`proj ${p.pred_points} pts`)).join("")+`</div>`;
+      view.innerHTML = `<div class="xi"><h3>Best value (points per £m)</h3>${list(d.best_value)}
+        <h3>Differentials (under 10% owned)</h3>${list(d.differentials)}</div>`;
+    }
+  }catch(e){ view.innerHTML = `<div class="loading">Could not load. Is the API running?</div>`; }
+}
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: fpl-predictor
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY      # add your key in the Render dashboard (keep secret)
+        sync: false
+      - key: FPL_LLM_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: FPL_REFRESH_TOKEN
+        generateValue: true
+      - key: FPL_HIST_SEASONS       # drop to "2024-25,2025-26" if the free instance runs low on memory
+        value: 2023-24,2024-25,2025-26
+
+  # Optional: keeps the free instance warm and the model fresh by pinging /health.
+  # Replace <YOUR-APP> with your deployed URL after the first deploy.
+  - type: cron
+    name: fpl-warm
+    runtime: python
+    plan: free
+    schedule: "*/12 * * * *"
+    buildCommand: pip install requests
+    startCommand: python -c "import requests,os; requests.get(os.environ['WARM_URL'],timeout=120)"
+    envVars:
+      - key: WARM_URL
+        value: https://<YOUR-APP>.onrender.com/health
