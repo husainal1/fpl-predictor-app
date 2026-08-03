@@ -8,7 +8,8 @@ fixtures, and explains every recommendation in plain English.
 Built by [Husain Ali](https://github.com/husainal1). (Free hosting sleeps when idle, so the first
 load after a quiet spell can take up to a minute to wake, then it's fast.)
 
-![Best XI lineup](best-xi.png)
+![Best XI lineup](<img width="1989" height="1381" alt="bestXI" src="https://github.com/user-attachments/assets/17c66dad-16a7-41f5-b5a8-f05f23ee3d89" />
+)
 
 ## What it does
 
