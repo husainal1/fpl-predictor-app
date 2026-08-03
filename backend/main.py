@@ -48,7 +48,7 @@ def _records(df: pd.DataFrame, cols=None):
             if isinstance(v, (np.integer,)):
                 v = int(v)
             elif isinstance(v, (np.floating,)):
-                v = None if pd.isna(v) else round(float(v), 3)
+                v = None if pd.isna(v) else round(float(v), 2)
             elif isinstance(v, (np.bool_,)):
                 v = bool(v)
             row[k] = v
@@ -64,7 +64,32 @@ def _sid(request: Request, response: Response) -> str:
     return sid
 
 
-PRED_COLS = ["player_id", "web_name", "team_name", "position", "price", "pred_points", "owned_pct"]
+PRED_COLS = ["player_id", "web_name", "team_name", "position", "price",
+             "pred_points", "owned_pct", "opp_name", "is_home"]
+
+# Official club badges, keyed off live FPL team data so they stay correct as
+# teams change. Fetched once and cached.
+_CRESTS = {}
+
+
+def _crest_map():
+    global _CRESTS
+    if _CRESTS:
+        return _CRESTS
+    try:
+        b = engine.get_json(f"{engine.BASE}/bootstrap-static/")
+        _CRESTS = {t["name"]: f"https://resources.premierleague.com/premierleague/badges/50/t{t['code']}.png"
+                   for t in b.get("teams", [])}
+    except Exception:  # noqa: BLE001
+        _CRESTS = {"__tried__": None}
+    return _CRESTS
+
+
+def _add_crest(players):
+    cm = _crest_map()
+    for p in players:
+        p["crest"] = cm.get(p.get("team_name"))
+    return players
 
 
 # --------------------------------------------------------------------------- #
@@ -83,7 +108,7 @@ def predictions(limit: int = 50, position: str = None):
     d = st.predictions
     if position:
         d = d[d["position"] == position.upper()]
-    return {"next_gw": st.next_gw, "players": _records(d.head(limit), PRED_COLS)}
+    return {"next_gw": st.next_gw, "players": _add_crest(_records(d.head(limit), PRED_COLS))}
 
 
 @app.get("/api/squad")
@@ -96,7 +121,7 @@ def squad(budget: float = engine.SQUAD_BUDGET):
         "cost": round(float(sq["price"].sum()), 1),
         "captain": (cap.iloc[0] if len(cap) else None),
         "predicted_xi_points": round(float(sq[sq["is_start"] == 1]["pred_points"].sum()), 2),
-        "squad": _records(sq, PRED_COLS + ["is_start", "is_cap"]),
+        "squad": _add_crest(_records(sq, PRED_COLS + ["is_start", "is_cap"])),
     }
 
 
@@ -105,9 +130,9 @@ def horizon(n: int = 5, limit: int = 30):
     st = engine.get_state()
     run = st.horizon(n=n)
     return {"from_gw": st.next_gw, "weeks": n,
-            "players": _records(run.head(limit),
+            "players": _add_crest(_records(run.head(limit),
                                 ["player_id", "web_name", "team_name", "position",
-                                 "price", "games", "horizon_points", "per_game"])}
+                                 "price", "games", "horizon_points", "per_game"]))}
 
 
 @app.get("/api/value")
