@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>FPL Predictor</title>
 <style>
-  :root{--bg:#0f1420;--card:#182033;--line:#26304a;--txt:#e8edf7;--mut:#94a3c0;--acc:#37d67a;--acc2:#5b9dff;}
+  :root{--bg:#0f1420;--card:#182033;--line:#26304a;--txt:#e8edf7;--mut:#94a3c0;--acc:#37d67a;--acc2:#5b9dff;--gold:#ffcf5b;--pitch:#123a1e;--pitch2:#0f2f18;}
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
   header{padding:22px 18px 8px;max-width:1000px;margin:0 auto}
@@ -18,9 +18,11 @@
   .ctl{margin-left:auto;color:var(--mut);font-size:13px;display:flex;align-items:center;gap:6px}
   select,input{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:9px 0}
-  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .crest{width:22px;height:22px;object-fit:contain;flex:none}
   .nm{font-weight:600}
   .pill{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:20px;padding:1px 8px}
+  .pill.opp{color:var(--gold);border-color:#5a4a1e}
   .pts{margin-left:auto;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
   .meta{color:var(--mut);font-size:12.5px;margin-top:2px}
   .why{background:transparent;border:1px solid var(--line);color:var(--acc2);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12.5px}
@@ -28,11 +30,31 @@
   .exp .fb{margin-top:8px;display:flex;gap:8px;align-items:center;color:var(--mut);font-size:12px}
   .exp .fb button{background:transparent;border:1px solid var(--line);border-radius:7px;padding:3px 9px;cursor:pointer;font-size:14px}
   .muted{color:var(--mut)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:9px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:9px}
   .xi h3{margin:14px 0 6px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
-  .cap{color:#ffcf5b;font-size:11px;border-color:#5a4a1e}
+  .cap{color:var(--gold);border-color:#5a4a1e}
   .loading{color:var(--mut);padding:30px 0;text-align:center}
   a{color:var(--acc2)}
+  /* ---- squad builder ---- */
+  .sb-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+  @media(max-width:820px){.sb-wrap{grid-template-columns:1fr}}
+  .sb-bar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 14px;margin-bottom:10px}
+  .sb-bar b{color:var(--txt)}
+  .sb-bar .warn{color:#ff8b8b}
+  .sb-bar .ok{color:var(--acc)}
+  .pitch{background:linear-gradient(var(--pitch),var(--pitch2));border:1px solid var(--line);border-radius:12px;padding:12px 8px;min-height:420px}
+  .pline{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .slot{width:82px;text-align:center;font-size:11px}
+  .slot .shirt{width:46px;height:46px;margin:0 auto 3px;border-radius:50%;background:#0c1626;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .slot.filled .shirt{background:#16233b;border-color:var(--acc2)}
+  .slot .shirt img{width:30px;height:30px;object-fit:contain}
+  .slot .snm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)}
+  .slot .spt{color:var(--acc);font-weight:600}
+  .slot .empty{color:var(--mut);font-size:20px}
+  .pool .prow{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:7px 9px;margin:6px 0;background:var(--card)}
+  .pool .prow .add{margin-left:auto;border:1px solid var(--line);background:transparent;color:var(--acc);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:16px}
+  .pool .prow .add:disabled{color:var(--mut);cursor:not-allowed;opacity:.5}
+  .posfilter button{font-size:12px;padding:5px 10px}
 </style>
 </head>
 <body>
@@ -44,6 +66,7 @@
   <nav>
     <button data-tab="picks" class="active">Top picks</button>
     <button data-tab="squad">Best XI</button>
+    <button data-tab="builder">Squad builder</button>
     <button data-tab="horizon">Fixture runs</button>
     <button data-tab="value">Value &amp; differentials</button>
     <span class="ctl" id="ctl"></span>
@@ -57,10 +80,17 @@ const view = document.getElementById("view");
 const sub  = document.getElementById("sub");
 const ctl  = document.getElementById("ctl");
 let TAB = "picks";
+let ALL = null;                       // all players, cached for the builder
+const SB = { picked: {} };            // squad builder selection: id -> player
+const SQUAD_LIMITS = {GK:2, DEF:5, MID:5, FWD:3};
+const BUDGET = 100.0;
 
 const g = (u)=>fetch(API+u,{credentials:"include"}).then(r=>r.json());
 const post = (u,b)=>fetch(API+u,{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify(b||{})}).then(r=>r.json());
-const esc = s => (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const num = v => (+(v ?? 0)).toFixed(2);
+const logo = p => p && p.crest ? `<img class="crest" src="${esc(p.crest)}" onerror="this.remove()">` : "";
+const oppText = p => p && p.opp_name ? `${p.is_home ? "vs" : "@"} ${esc(p.opp_name)}` : "";
 
 async function boot(){
   try{ const h = await g("/health");
@@ -78,14 +108,17 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
 
 function playerCard(p, extra=""){
   const owned = p.owned_pct!=null?`${p.owned_pct}% owned`:"";
+  const pts = p.horizon_points!=null ? p.horizon_points : p.pred_points;
+  const opp = oppText(p);
   return `<div class="card"><div class="row">
-      <span class="nm">${esc(p.web_name)}</span>
+      ${logo(p)}<span class="nm">${esc(p.web_name)}</span>
       <span class="pill">${esc(p.position)}</span>
       <span class="pill">${esc(p.team_name)}</span>
+      ${opp?`<span class="pill opp">${opp}</span>`:""}
       <span class="pill">£${p.price}m</span>
-      <span class="pts">${(p.pred_points??p.horizon_points??0).toFixed? (p.pred_points??p.horizon_points).toFixed(2): (p.pred_points??p.horizon_points)}</span>
+      <span class="pts">${num(pts)}</span>
     </div>
-    <div class="meta">${extra}${owned?` · ${owned}`:""}</div>
+    <div class="meta">${extra}${owned?`${extra?" · ":""}${owned}`:""}</div>
     <div class="row" style="margin-top:8px">
       <button class="why" onclick="why(${p.player_id},this)">Why this pick?</button>
     </div>
@@ -107,20 +140,30 @@ window.fb = async (pid, helpful, btn)=>{
   btn.closest(".fb").querySelector(".var").textContent = "thanks!";
 };
 
+async function loadAll(){
+  if(ALL) return ALL;
+  const d = await g("/api/predictions?limit=700");
+  ALL = d.players || [];
+  return ALL;
+}
+
 async function render(){
   ctl.innerHTML=""; view.innerHTML=`<div class="loading">Loading…</div>`;
   try{
     if(TAB==="picks"){
       const d = await g("/api/predictions?limit=40");
-      view.innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`proj ${p.pred_points} pts`)).join("")+`</div>`;
+      view.innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`proj ${num(p.pred_points)} pts`)).join("")+`</div>`;
     }
     else if(TAB==="squad"){
       const d = await g("/api/squad");
       const xi = d.squad.filter(p=>p.is_start), bench=d.squad.filter(p=>!p.is_start);
-      const cards = a=>a.map(p=>playerCard(p, (p.is_cap?`<span class="pill cap">CAPTAIN</span> `:"")+`proj ${p.pred_points} pts`)).join("");
-      view.innerHTML = `<div class="card"><b>Optimal squad for GW${d.next_gw}</b> · cost £${d.cost}m · captain ${esc(d.captain)} · projected XI ${d.predicted_xi_points} pts</div>
+      const cards = a=>a.map(p=>playerCard(p, (p.is_cap?`<span class="pill cap">CAPTAIN</span> `:"")+`proj ${num(p.pred_points)} pts`)).join("");
+      view.innerHTML = `<div class="card"><b>Optimal squad for GW${d.next_gw}</b> · cost £${d.cost}m · captain ${esc(d.captain)} · projected XI ${num(d.predicted_xi_points)} pts</div>
         <div class="xi"><h3>Starting XI</h3><div class="grid">${cards(xi)}</div>
         <h3>Bench</h3><div class="grid">${cards(bench)}</div></div>`;
+    }
+    else if(TAB==="builder"){
+      await loadAll(); renderBuilder();
     }
     else if(TAB==="horizon"){
       ctl.innerHTML = `Weeks: <select id="nw">${[3,4,5,6].map(n=>`<option ${n===5?"selected":""}>${n}</option>`).join("")}</select>`;
@@ -128,18 +171,91 @@ async function render(){
         const n = document.getElementById("nw").value;
         const box = document.getElementById("hbox"); if(box) box.innerHTML="Loading…";
         const d = await g(`/api/horizon?n=${n}&limit=40`);
-        document.getElementById("hbox").innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`${p.horizon_points} pts over ${p.games} games · ${p.per_game}/game`)).join("")+`</div>`;
+        document.getElementById("hbox").innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`${num(p.horizon_points)} pts over ${p.games} games · ${num(p.per_game)}/game`)).join("")+`</div>`;
       };
       view.innerHTML = `<div class="card muted">Total predicted points over the next few gameweeks (doubles and blanks handled).</div><div id="hbox"></div>`;
       document.getElementById("nw").onchange = draw; draw();
     }
     else if(TAB==="value"){
       const d = await g("/api/value");
-      const list = a=>`<div class="grid">`+a.map(p=>playerCard(p, p.pts_per_million?`${p.pts_per_million} pts per £m`:`proj ${p.pred_points} pts`)).join("")+`</div>`;
+      const list = a=>`<div class="grid">`+a.map(p=>playerCard(p, p.pts_per_million?`${num(p.pts_per_million)} pts per £m`:`proj ${num(p.pred_points)} pts`)).join("")+`</div>`;
       view.innerHTML = `<div class="xi"><h3>Best value (points per £m)</h3>${list(d.best_value)}
         <h3>Differentials (under 10% owned)</h3>${list(d.differentials)}</div>`;
     }
   }catch(e){ view.innerHTML = `<div class="loading">Could not load. Is the API running?</div>`; }
+}
+
+/* ------------------------- squad builder ------------------------- */
+let POOL_POS = "MID";
+function sbStats(){
+  const picked = Object.values(SB.picked);
+  const cost = picked.reduce((s,p)=>s+ (+p.price||0),0);
+  const pts  = picked.reduce((s,p)=>s+ (+p.pred_points||0),0);
+  const counts = {GK:0,DEF:0,MID:0,FWD:0}; const clubs={};
+  picked.forEach(p=>{counts[p.position]=(counts[p.position]||0)+1; clubs[p.team_name]=(clubs[p.team_name]||0)+1;});
+  return {picked,cost,pts,counts,clubs,remaining:BUDGET-cost,full:picked.length===15};
+}
+function sbCanAdd(p){
+  if(SB.picked[p.player_id]) return false;
+  const s=sbStats();
+  if((s.counts[p.position]||0) >= SQUAD_LIMITS[p.position]) return false;
+  if((s.clubs[p.team_name]||0) >= 3) return false;
+  if(s.cost + (+p.price||0) > BUDGET) return false;
+  if(s.picked.length >= 15) return false;
+  return true;
+}
+window.sbAdd = (pid)=>{ const p=ALL.find(x=>x.player_id===pid); if(p&&sbCanAdd(p)){SB.picked[pid]=p; renderBuilder();} };
+window.sbRemove = (pid)=>{ delete SB.picked[pid]; renderBuilder(); };
+window.sbClear = ()=>{ SB.picked={}; renderBuilder(); };
+window.sbPos = (pos)=>{ POOL_POS=pos; renderBuilder(); };
+
+function slotHTML(p, pos){
+  if(!p) return `<div class="slot"><div class="shirt"><span class="empty">+</span></div><div class="snm muted">${pos}</div></div>`;
+  return `<div class="slot filled" title="Remove ${esc(p.web_name)}" onclick="sbRemove(${p.player_id})">
+      <div class="shirt">${p.crest?`<img src="${esc(p.crest)}" onerror="this.remove()">`:pos}</div>
+      <div class="snm">${esc(p.web_name)}</div>
+      <div class="spt">${num(p.pred_points)}</div></div>`;
+}
+function lineHTML(pos){
+  const picked = Object.values(SB.picked).filter(p=>p.position===pos);
+  const slots=[];
+  for(let i=0;i<SQUAD_LIMITS[pos];i++) slots.push(slotHTML(picked[i], pos));
+  return `<div class="pline">${slots.join("")}</div>`;
+}
+function renderBuilder(){
+  const s=sbStats();
+  const overBudget = s.remaining < 0;
+  const status = s.full
+    ? (overBudget ? `<span class="warn">Over budget</span>` : `<span class="ok">Full squad ✓</span>`)
+    : `${15-s.picked.length} to pick`;
+  const bar = `<div class="sb-bar">
+     <div>Budget left: <b class="${overBudget?"warn":"ok"}">£${s.remaining.toFixed(1)}m</b> / £${BUDGET}m</div>
+     <div>Squad: <b>${s.picked.length}/15</b> (GK ${s.counts.GK}/2 · DEF ${s.counts.DEF}/5 · MID ${s.counts.MID}/5 · FWD ${s.counts.FWD}/3)</div>
+     <div>Predicted points: <b class="ok">${num(s.pts)}</b></div>
+     <div>${status}</div>
+     <button class="why" style="margin-left:auto" onclick="sbClear()">Clear</button>
+   </div>`;
+
+  const pitch = `<div class="pitch">
+      ${lineHTML("GK")}${lineHTML("DEF")}${lineHTML("MID")}${lineHTML("FWD")}
+      <div class="muted" style="text-align:center;font-size:12px;margin-top:6px">Tap a player to remove</div>
+    </div>`;
+
+  const posBtns = ["GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===POOL_POS?"active":""}" onclick="sbPos('${p}')" style="${p===POOL_POS?"border-color:var(--acc2);color:var(--txt)":""}">${p}</button>`).join(" ");
+  const cands = ALL.filter(p=>p.position===POOL_POS).sort((a,b)=>b.pred_points-a.pred_points).slice(0,50);
+  const pool = cands.map(p=>{
+    const can = sbCanAdd(p); const have = !!SB.picked[p.player_id];
+    return `<div class="prow">${logo(p)}<span class="nm">${esc(p.web_name)}</span>
+      <span class="pill">${esc(p.team_name)}</span>
+      ${oppText(p)?`<span class="pill opp">${oppText(p)}</span>`:""}
+      <span class="pill">£${p.price}m</span><span class="pts" style="margin-left:auto">${num(p.pred_points)}</span>
+      <button class="add" ${have?'onclick="sbRemove('+p.player_id+')"':(can?'onclick="sbAdd('+p.player_id+')"':'disabled')}>${have?"−":"+"}</button></div>`;
+  }).join("");
+
+  view.innerHTML = bar + `<div class="sb-wrap">${pitch}
+     <div class="pool"><div class="posfilter row" style="margin-bottom:6px">${posBtns}</div>
+       <div class="muted" style="font-size:12px;margin-bottom:4px">Top ${POOL_POS} by predicted points — tap + to add</div>
+       ${pool}</div></div>`;
 }
 boot();
 </script>
