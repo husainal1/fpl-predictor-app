@@ -45,7 +45,9 @@
   .pitch{background:linear-gradient(var(--pitch),var(--pitch2));border:1px solid var(--line);border-radius:12px;padding:12px 8px;min-height:420px}
   .pline{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0}
   .slot{width:82px;text-align:center;font-size:11px}
-  .slot .shirt{width:46px;height:46px;margin:0 auto 3px;border-radius:50%;background:#0c1626;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .slot .shirt{position:relative;width:46px;height:46px;margin:0 auto 3px;border-radius:50%;background:#0c1626;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .capbadge{position:absolute;top:-4px;right:-4px;background:var(--gold);color:#1a1400;border-radius:50%;width:17px;height:17px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .gold{color:var(--gold)}
   .slot.filled .shirt{background:#16233b;border-color:var(--acc2)}
   .slot .shirt img{width:30px;height:30px;object-fit:contain}
   .slot .snm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)}
@@ -139,6 +141,16 @@ window.fb = async (pid, helpful, btn)=>{
   await post("/api/feedback",{player_id:pid,helpful});
   btn.closest(".fb").querySelector(".var").textContent = "thanks!";
 };
+window.explainInline = async (pid)=>{
+  const box=document.getElementById("explbox"); if(!box) return;
+  box.innerHTML=`<div class="exp muted">Thinking…</div>`;
+  const r=await post(`/api/player/${pid}/explain`,{});
+  box.innerHTML=`<div class="exp"><b>${esc(r.web_name||"")}:</b> ${esc(r.text)}
+     <div class="fb"><span>Helpful?</span>
+       <button onclick="fb(${pid},true,this)">👍</button>
+       <button onclick="fb(${pid},false,this)">👎</button>
+       <span class="var muted"></span></div></div>`;
+};
 
 async function loadAll(){
   if(ALL) return ALL;
@@ -157,10 +169,21 @@ async function render(){
     else if(TAB==="squad"){
       const d = await g("/api/squad");
       const xi = d.squad.filter(p=>p.is_start), bench=d.squad.filter(p=>!p.is_start);
-      const cards = a=>a.map(p=>playerCard(p, (p.is_cap?`<span class="pill cap">CAPTAIN</span> `:"")+`proj ${num(p.pred_points)} pts`)).join("");
-      view.innerHTML = `<div class="card"><b>Optimal squad for GW${d.next_gw}</b> · cost £${d.cost}m · captain ${esc(d.captain)} · projected XI ${num(d.predicted_xi_points)} pts</div>
-        <div class="xi"><h3>Starting XI</h3><div class="grid">${cards(xi)}</div>
-        <h3>Bench</h3><div class="grid">${cards(bench)}</div></div>`;
+      const byPos = pos => xi.filter(p=>p.position===pos);
+      const gk=byPos("GK"), df=byPos("DEF"), md=byPos("MID"), fw=byPos("FWD");
+      const formation = `${df.length}-${md.length}-${fw.length}`;
+      const shirt = p => `<div class="slot filled" style="cursor:pointer" onclick="explainInline(${p.player_id})" title="Tap for the AI verdict">
+          <div class="shirt">${p.crest?`<img src="${esc(p.crest)}" onerror="this.remove()">`:esc(p.position)}${p.is_cap?'<span class="capbadge">C</span>':''}</div>
+          <div class="snm">${esc(p.web_name)}</div><div class="spt">${num(p.pred_points)}</div>
+          <div class="snm muted" style="font-size:10px">${oppText(p)}</div></div>`;
+      const line = arr => `<div class="pline">${arr.map(shirt).join("")}</div>`;
+      view.innerHTML = `
+        <div class="sb-bar"><div>Formation <b>${formation}</b></div><div>Cost <b>£${d.cost}m</b></div>
+          <div>Captain <b class="gold">${esc(d.captain)}</b></div><div>Projected XI <b class="ok">${num(d.predicted_xi_points)}</b> pts</div></div>
+        <div class="pitch">${line(gk)}${line(df)}${line(md)}${line(fw)}
+          <div class="muted" style="text-align:center;font-size:12px;margin-top:6px">Tap a player for the AI verdict on the pick</div></div>
+        <div id="explbox"></div>
+        <div class="xi"><h3>Bench</h3><div class="pline" style="justify-content:flex-start">${bench.map(shirt).join("")}</div></div>`;
     }
     else if(TAB==="builder"){
       await loadAll(); renderBuilder();
