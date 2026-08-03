@@ -76,5 +76,6 @@ def explain(player: dict, variant: str = "concise") -> dict:
         )
         text = "".join(getattr(b, "text", "") for b in msg.content).strip()
         return {"text": text or _fallback(player, variant), "variant": variant, "source": "claude"}
-    except Exception:  # noqa: BLE001 - never let the explainer break the request
+    except Exception as e:  # noqa: BLE001 - never let the explainer break the request
+        print("LLM_ERROR", type(e).__name__, str(e)[:300], flush=True)
         return {"text": _fallback(player, variant), "variant": variant, "source": "fallback"}
