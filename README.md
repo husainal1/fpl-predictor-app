@@ -8,7 +8,7 @@ fixtures, and explains every recommendation in plain English.
 Built by [Husain Ali](https://github.com/husainal1). (Free hosting sleeps when idle, so the first
 load after a quiet spell can take up to a minute to wake, then it's fast.)
 
-![Best XI lineup](<img width="1989" height="1381" alt="0E680363-0482-4A02-91E7-92C142012512_1_201_a" src="https://github.com/user-attachments/assets/dfe9419c-85a2-4cb9-88c2-3c286503c427" />)
+![Best XI lineup]([<img width="1989" height="1381" alt="0E680363-0482-4A02-91E7-92C142012512_1_201_a" src="https://github.com/user-attachments/assets/dfe9419c-85a2-4cb9-88c2-3c286503c427" />](https://github.com/husainal1/fpl-predictor-app/blob/802c350f29ff6459dcb6d8c5d35cc3437f133c5b/bestXI.png))
 
 ## What it does
 
