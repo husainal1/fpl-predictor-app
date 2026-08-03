@@ -210,6 +210,7 @@ async function render(){
 
 /* ------------------------- squad builder ------------------------- */
 let POOL_POS = "MID";
+let SBQ = "";
 function sbStats(){
   const picked = Object.values(SB.picked);
   const cost = picked.reduce((s,p)=>s+ (+p.price||0),0);
@@ -230,7 +231,7 @@ function sbCanAdd(p){
 window.sbAdd = (pid)=>{ const p=ALL.find(x=>x.player_id===pid); if(p&&sbCanAdd(p)){SB.picked[pid]=p; renderBuilder();} };
 window.sbRemove = (pid)=>{ delete SB.picked[pid]; renderBuilder(); };
 window.sbClear = ()=>{ SB.picked={}; renderBuilder(); };
-window.sbPos = (pos)=>{ POOL_POS=pos; renderBuilder(); };
+window.sbPos = (pos)=>{ POOL_POS=pos; SBQ=""; renderBuilder(); };
 
 function slotHTML(p, pos){
   if(!p) return `<div class="slot"><div class="shirt"><span class="empty">+</span></div><div class="snm muted">${pos}</div></div>`;
@@ -265,21 +266,35 @@ function renderBuilder(){
     </div>`;
 
   const posBtns = ["GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===POOL_POS?"active":""}" onclick="sbPos('${p}')" style="${p===POOL_POS?"border-color:var(--acc2);color:var(--txt)":""}">${p}</button>`).join(" ");
-  const cands = ALL.filter(p=>p.position===POOL_POS).sort((a,b)=>b.pred_points-a.pred_points).slice(0,50);
-  const pool = cands.map(p=>{
-    const can = sbCanAdd(p); const have = !!SB.picked[p.player_id];
+  view.innerHTML = bar + `<div class="sb-wrap">${pitch}
+     <div class="pool">
+       <input id="sbsearch" placeholder="Search any player by name…" value="${esc(SBQ)}" oninput="sbSearch(this.value)" style="width:100%;margin-bottom:6px">
+       <div class="posfilter row" style="margin-bottom:6px">${posBtns}</div>
+       <div class="muted" id="poolhint" style="font-size:12px;margin-bottom:4px">${SBQ.trim()?"Search results":("Top "+POOL_POS+" by predicted points")} — tap + to add</div>
+       <div id="sbpool">${poolRowsHTML()}</div></div></div>`;
+}
+
+function poolRowsHTML(){
+  const q = SBQ.trim().toLowerCase();
+  let cands = q ? ALL.filter(p=>(p.web_name||"").toLowerCase().includes(q))
+                : ALL.filter(p=>p.position===POOL_POS);
+  cands = cands.sort((a,b)=>b.pred_points-a.pred_points).slice(0, q?40:50);
+  if(!cands.length) return `<div class="muted" style="padding:10px 2px">No players match “${esc(SBQ)}”.</div>`;
+  return cands.map(p=>{
+    const can = sbCanAdd(p), have = !!SB.picked[p.player_id];
     return `<div class="prow">${logo(p)}<span class="nm">${esc(p.web_name)}</span>
+      <span class="pill">${esc(p.position)}</span>
       <span class="pill">${esc(p.team_name)}</span>
       ${oppText(p)?`<span class="pill opp">${oppText(p)}</span>`:""}
       <span class="pill">£${p.price}m</span><span class="pts" style="margin-left:auto">${num(p.pred_points)}</span>
       <button class="add" ${have?'onclick="sbRemove('+p.player_id+')"':(can?'onclick="sbAdd('+p.player_id+')"':'disabled')}>${have?"−":"+"}</button></div>`;
   }).join("");
-
-  view.innerHTML = bar + `<div class="sb-wrap">${pitch}
-     <div class="pool"><div class="posfilter row" style="margin-bottom:6px">${posBtns}</div>
-       <div class="muted" style="font-size:12px;margin-bottom:4px">Top ${POOL_POS} by predicted points — tap + to add</div>
-       ${pool}</div></div>`;
 }
+window.renderPool = ()=>{
+  const el=document.getElementById("sbpool"); if(el) el.innerHTML=poolRowsHTML();
+  const h=document.getElementById("poolhint"); if(h) h.textContent=(SBQ.trim()?"Search results":("Top "+POOL_POS+" by predicted points"))+" — tap + to add";
+};
+window.sbSearch = (q)=>{ SBQ=q; renderPool(); };
 boot();
 </script>
 </body>
