@@ -329,7 +329,19 @@ def _opp_map(fixtures, team_name_now, gw):
     return m
 
 
-def predict_gw(players_now, fixtures, team_name_now, team_strength, recent, model, gw, statuses):
+def _avail_mult(chance, status):
+    """Availability multiplier from FPL data. Uses the graded chance_of_playing
+    percentage when present (0-100); otherwise treats suspended/injured/unavailable
+    as out and everyone else as fully available."""
+    try:
+        return max(0.0, min(1.0, float(chance) / 100.0))
+    except (TypeError, ValueError):
+        return 0.0 if status in ("s", "i", "u", "n") else 1.0
+
+
+def predict_gw(players_now, fixtures, team_name_now, team_strength, recent, model, gw,
+               statuses, chances=None, damp=True):
+    chances = chances or {}
     r_idx = recent.set_index("name_key")
     opp = _opp_map(fixtures, team_name_now, gw)
     rows = []
@@ -344,19 +356,25 @@ def predict_gw(players_now, fixtures, team_name_now, team_strength, recent, mode
             pf[f] = 0.0
     pf[FEATURES] = pf[FEATURES].apply(pd.to_numeric, errors="coerce").fillna(0.0)
     pf["pred_points"] = model.predict(pf[FEATURES])
-    # damp unavailable players (injured / suspended)
-    pf["pred_points"] = [pp * (0.4 if statuses.get(pid, "a") != "a" else 1.0)
-                         for pp, pid in zip(pf["pred_points"], pf["player_id"])]
+    # Scale by FPL availability -- only in-season, since pre-season flags are
+    # unreliable (e.g. a World Cup knock). In-season, use FPL's graded
+    # chance_of_playing percentage so it self-corrects as FPL updates.
+    if damp:
+        pf["pred_points"] = [pp * _avail_mult(chances.get(pid), statuses.get(pid, "a"))
+                             for pp, pid in zip(pf["pred_points"], pf["player_id"])]
     return pf
 
 
 def horizon_run(state: "EngineState", n=5):
     statuses = dict(zip(state.players_now["player_id"],
                         state.players_now.get("status", pd.Series(["a"] * len(state.players_now)))))
+    chances = dict(zip(state.players_now["player_id"],
+                       state.players_now.get("chance", pd.Series([None] * len(state.players_now)))))
     team_strength = _make_current_only_strength(state.cur_strength)
     gws = list(range(state.next_gw, min(state.next_gw + n, 39)))
     frames = [predict_gw(state.players_now, state.fixtures, state.team_name_now,
-                         team_strength, state.recent, state.model, g, statuses) for g in gws]
+                         team_strength, state.recent, state.model, g, statuses,
+                         chances=chances, damp=state.season_started) for g in gws]
     frames = [f for f in frames if not f.empty]
     if not frames:
         return pd.DataFrame()
@@ -406,6 +424,7 @@ def build_state(session_get=get_json) -> EngineState:
         "position": elements["element_type"].map(POS_MAP),
         "price": elements["now_cost"] / 10.0,
         "status": elements["status"],
+        "chance": pd.to_numeric(elements.get("chance_of_playing_next_round"), errors="coerce"),
         "owned_pct": pd.to_numeric(elements["selected_by_percent"], errors="coerce"),
     })
     players_now = players_now[players_now["position"].isin(VALID_POS)].copy()
@@ -483,8 +502,10 @@ def build_state(session_get=get_json) -> EngineState:
     # next-GW predictions
     recent = latest_form(hist)
     statuses = dict(zip(players_now["player_id"], players_now["status"]))
+    chances = dict(zip(players_now["player_id"], players_now["chance"]))
     cur_only = _make_current_only_strength(cur_strength)
-    pred = predict_gw(players_now, fixtures, team_name_now, cur_only, recent, model, next_gw, statuses)
+    pred = predict_gw(players_now, fixtures, team_name_now, cur_only, recent, model, next_gw,
+                      statuses, chances=chances, damp=season_started)
     own = dict(zip(players_now["player_id"], players_now["owned_pct"]))
     pred["owned_pct"] = pred["player_id"].map(own).fillna(0.0)
     pred = pred.sort_values("pred_points", ascending=False).reset_index(drop=True)

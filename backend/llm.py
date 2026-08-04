@@ -34,15 +34,31 @@ def _facts(player: dict) -> str:
     return "\n".join(parts)
 
 
+def _verdict(pts: float) -> str:
+    if pts >= 5:
+        return "one of the strongest picks this week"
+    if pts >= 4:
+        return "a strong pick"
+    if pts >= 3:
+        return "a solid, sensible pick"
+    if pts >= 2:
+        return "a fringe pick with rotation or minutes risk"
+    return "a weak pick this week"
+
+
 def _prompt(player: dict, variant: str) -> str:
+    pts = float(player.get("pred_points", 0) or 0)
+    verdict = _verdict(pts)
     style = ("Answer in ONE punchy sentence."
              if variant == "concise" else
              "Answer in two or three sentences, explaining the key reasons.")
     return (
-        "You are an assistant inside a Fantasy Premier League tool. Using ONLY the "
-        "facts below, explain to a manager whether this player is a good pick for the "
-        "upcoming gameweek and why. Be specific about form, fixture and value. Do not "
-        "invent stats. Do not use em dashes.\n\n"
+        "You are an assistant inside a Fantasy Premier League tool. The model rates this "
+        f"player as {verdict}. Using ONLY the facts below, explain the main reasons that "
+        "support that rating (form, fixture, value). Stay consistent with the rating: for a "
+        "player the model rates highly, make the positive case and mention at most one genuine "
+        "risk briefly, without leading with the word 'risky' or overstating the downside. Do "
+        "not contradict the model's verdict. Do not invent stats. Do not use em dashes.\n\n"
         f"{_facts(player)}\n\n{style}"
     )
 

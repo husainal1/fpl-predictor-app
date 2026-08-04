@@ -108,7 +108,11 @@ def predictions(limit: int = 50, position: str = None):
     d = st.predictions
     if position:
         d = d[d["position"] == position.upper()]
-    return {"next_gw": st.next_gw, "players": _add_crest(_records(d.head(limit), PRED_COLS))}
+    players = _add_crest(_records(d.head(limit), PRED_COLS))
+    fn = dict(zip(st.players_now["player_id"], st.players_now["full_name"]))
+    for p in players:
+        p["full_name"] = fn.get(p.get("player_id"), p.get("web_name"))
+    return {"next_gw": st.next_gw, "players": players}
 
 
 @app.get("/api/squad")
