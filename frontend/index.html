@@ -42,19 +42,31 @@
   .sb-bar b{color:var(--txt)}
   .sb-bar .warn{color:#ff8b8b}
   .sb-bar .ok{color:var(--acc)}
-  .pitch{background:linear-gradient(var(--pitch),var(--pitch2));border:1px solid var(--line);border-radius:12px;padding:16px 8px;min-height:360px;display:flex;flex-direction:column;justify-content:space-evenly}
-  .pline{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0}
-  .slot{width:82px;text-align:center;font-size:11px}
-  .slot .shirt{position:relative;width:46px;height:46px;margin:0 auto 3px;border-radius:50%;background:#0c1626;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
-  .capbadge{position:absolute;top:-4px;right:-4px;background:var(--gold);color:#1a1400;border-radius:50%;width:17px;height:17px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .pitch{position:relative;border:1px solid var(--line);border-radius:12px;padding:18px 10px;min-height:430px;display:flex;flex-direction:column;justify-content:space-around;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='rgba(255,255,255,0.16)' stroke-width='1.5'%3E%3Cline x1='0' y1='210' x2='300' y2='210'/%3E%3Ccircle cx='150' cy='210' r='40'/%3E%3Ccircle cx='150' cy='210' r='2' fill='rgba(255,255,255,0.16)'/%3E%3Crect x='96' y='0' width='108' height='52'/%3E%3Crect x='126' y='0' width='48' height='20'/%3E%3Crect x='96' y='368' width='108' height='52'/%3E%3Crect x='126' y='400' width='48' height='20'/%3E%3C/g%3E%3C/svg%3E"),
+      repeating-linear-gradient(180deg,#1a5c30 0 42px,#17512b 42px 84px);
+    background-size:100% 100%,auto;background-repeat:no-repeat,repeat}
+  .pline{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin:4px 0}
+  .slot{width:80px;text-align:center;font-size:11px}
+  .slot .shirt{position:relative;width:50px;height:50px;margin:0 auto 3px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .slot .shirt img.kit{width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+  .slot .shirt .empty{width:40px;height:40px;border-radius:9px;border:1.5px dashed rgba(255,255,255,.35);background:rgba(0,0,0,.2);color:rgba(255,255,255,.6);font-size:18px;display:flex;align-items:center;justify-content:center}
+  .capbadge{position:absolute;top:-3px;right:8px;background:var(--gold);color:#1a1400;border-radius:50%;width:17px;height:17px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.5)}
   .gold{color:var(--gold)}
-  .slot.filled .shirt{background:#16233b;border-color:var(--acc2)}
-  .slot .shirt img{width:30px;height:30px;object-fit:contain}
-  .slot .snm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)}
-  .slot .spt{color:var(--acc);font-weight:600}
-  .slot .empty{color:var(--mut);font-size:20px}
-  .pool .prow{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:7px 9px;margin:6px 0;background:var(--card)}
-  .pool .prow .add{margin-left:auto;border:1px solid var(--line);background:transparent;color:var(--acc);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:16px}
+  .slot .snm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-weight:600;font-size:11px;background:rgba(6,18,10,.6);border-radius:4px;padding:1px 4px}
+  .slot .spt{color:#08160c;font-weight:800;font-size:11px;background:var(--acc);border-radius:4px;margin:2px auto 0;display:inline-block;padding:0 7px;font-variant-numeric:tabular-nums}
+  .slot .sopp{color:#e2ebf7;font-size:9.5px;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+  .slot .empty-lbl{color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.7)}
+  /* ---- search pool (clean rows) ---- */
+  .pool .prow{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:10px;padding:7px 11px;margin:6px 0;background:var(--card)}
+  .pool .prow .pk{width:30px;height:34px;object-fit:contain;flex:none}
+  .pool .prow .who{display:flex;flex-direction:column;min-width:0;line-height:1.25;margin-right:auto}
+  .pool .prow .who .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pool .prow .who .s{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}
+  .pool .prow .ppr{color:var(--mut);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .pool .prow .ppt{font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
+  .pool .prow .add{border:1px solid var(--line);background:transparent;color:var(--acc);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:16px;flex:none}
   .pool .prow .add:disabled{color:var(--mut);cursor:not-allowed;opacity:.5}
   .posfilter button{font-size:12px;padding:5px 10px;background:transparent;color:var(--mut);cursor:pointer}
   .posfilter button.active{background:#1d2740;border-color:var(--acc2);color:var(--txt)}
@@ -94,6 +106,16 @@ const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"
 const num = v => (+(v ?? 0)).toFixed(2);
 const logo = p => p && p.crest ? `<img class="crest" src="${esc(p.crest)}" onerror="this.remove()">` : "";
 const oppText = p => p && p.opp_name ? `${p.is_home ? "vs" : "@"} ${esc(p.opp_name)}` : "";
+// Official FPL club-kit image (GK variant for keepers), keyed by team code.
+const kitURL = p => (!p || p.team_code==null) ? ""
+  : `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${p.team_code}${p.position==="GK"?"_1":""}-66.png`;
+function kitImg(p, cls){
+  const k = kitURL(p), crest = p && p.crest ? esc(p.crest) : "";
+  if(!k && !crest) return "";
+  const src = k || crest;
+  const fb = (k && crest) ? `this.onerror=null;this.src='${crest}'` : `this.onerror=null;this.remove()`;
+  return `<img class="${cls}" src="${esc(src)}" onerror="${fb}">`;
+}
 
 async function boot(){
   try{ const h = await g("/health");
@@ -174,9 +196,9 @@ async function render(){
       const gk=byPos("GK"), df=byPos("DEF"), md=byPos("MID"), fw=byPos("FWD");
       const formation = `${df.length}-${md.length}-${fw.length}`;
       const shirt = p => `<div class="slot filled" style="cursor:pointer" onclick="explainInline(${p.player_id})" title="Tap for the AI verdict">
-          <div class="shirt">${p.crest?`<img src="${esc(p.crest)}" onerror="this.remove()">`:esc(p.position)}${p.is_cap?'<span class="capbadge">C</span>':''}</div>
+          <div class="shirt">${kitImg(p,"kit")}${p.is_cap?'<span class="capbadge">C</span>':''}</div>
           <div class="snm">${esc(p.web_name)}</div><div class="spt">${num(p.pred_points)}</div>
-          <div class="snm muted" style="font-size:10px">${oppText(p)}</div></div>`;
+          ${oppText(p)?`<div class="sopp">${oppText(p)}</div>`:""}</div>`;
       const line = arr => `<div class="pline">${arr.map(shirt).join("")}</div>`;
       view.innerHTML = `
         <div class="sb-bar"><div>Formation <b>${formation}</b></div><div>Cost <b>£${d.cost}m</b></div>
@@ -235,9 +257,9 @@ window.sbClear = ()=>{ SB.picked={}; renderBuilder(); };
 window.sbPos = (pos)=>{ POOL_POS=pos; SBQ=""; renderBuilder(); };
 
 function slotHTML(p, pos){
-  if(!p) return `<div class="slot"><div class="shirt"><span class="empty">+</span></div><div class="snm muted">${pos}</div></div>`;
+  if(!p) return `<div class="slot"><div class="shirt"><span class="empty">+</span></div><div class="snm empty-lbl">${pos}</div></div>`;
   return `<div class="slot filled" title="Remove ${esc(p.web_name)}" onclick="sbRemove(${p.player_id})">
-      <div class="shirt">${p.crest?`<img src="${esc(p.crest)}" onerror="this.remove()">`:pos}</div>
+      <div class="shirt">${kitImg(p,"kit")}</div>
       <div class="snm">${esc(p.web_name)}</div>
       <div class="spt">${num(p.pred_points)}</div></div>`;
 }
@@ -283,11 +305,11 @@ function poolRowsHTML(){
   if(!cands.length) return `<div class="muted" style="padding:10px 2px">No players match “${esc(SBQ)}”.</div>`;
   return cands.map(p=>{
     const can = sbCanAdd(p), have = !!SB.picked[p.player_id];
-    return `<div class="prow">${logo(p)}<span class="nm">${esc(p.web_name)}</span>
-      <span class="pill">${esc(p.position)}</span>
-      <span class="pill">${esc(p.team_name)}</span>
-      ${oppText(p)?`<span class="pill opp">${oppText(p)}</span>`:""}
-      <span class="pill">£${p.price}m</span><span class="pts" style="margin-left:auto">${num(p.pred_points)}</span>
+    return `<div class="prow">${kitImg(p,"pk")}
+      <div class="who"><span class="n">${esc(p.web_name)}</span>
+        <span class="s">${esc(p.position)} · ${esc(p.team_name)}${oppText(p)?" · "+oppText(p):""}</span></div>
+      <span class="ppr">£${p.price}m</span>
+      <span class="ppt">${num(p.pred_points)}</span>
       <button class="add" ${have?'onclick="sbRemove('+p.player_id+')"':(can?'onclick="sbAdd('+p.player_id+')"':'disabled')}>${have?"−":"+"}</button></div>`;
   }).join("");
 }
