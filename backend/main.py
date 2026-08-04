@@ -67,28 +67,32 @@ def _sid(request: Request, response: Response) -> str:
 PRED_COLS = ["player_id", "web_name", "team_name", "position", "price",
              "pred_points", "owned_pct", "opp_name", "is_home"]
 
-# Official club badges, keyed off live FPL team data so they stay correct as
-# teams change. Fetched once and cached.
+# Official club badges + team codes, keyed off live FPL team data so they stay
+# correct as teams change. The code powers both the badge and the kit image.
+# Fetched once and cached.
 _CRESTS = {}
+_CODES = {}
 
 
-def _crest_map():
-    global _CRESTS
+def _team_maps():
+    global _CRESTS, _CODES
     if _CRESTS:
-        return _CRESTS
+        return _CRESTS, _CODES
     try:
         b = engine.get_json(f"{engine.BASE}/bootstrap-static/")
         _CRESTS = {t["name"]: f"https://resources.premierleague.com/premierleague/badges/50/t{t['code']}.png"
                    for t in b.get("teams", [])}
+        _CODES = {t["name"]: t["code"] for t in b.get("teams", [])}
     except Exception:  # noqa: BLE001
         _CRESTS = {"__tried__": None}
-    return _CRESTS
+    return _CRESTS, _CODES
 
 
 def _add_crest(players):
-    cm = _crest_map()
+    cm, codes = _team_maps()
     for p in players:
         p["crest"] = cm.get(p.get("team_name"))
+        p["team_code"] = codes.get(p.get("team_name"))
     return players
 
 
