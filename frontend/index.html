@@ -42,7 +42,7 @@
   .sb-bar b{color:var(--txt)}
   .sb-bar .warn{color:#ff8b8b}
   .sb-bar .ok{color:var(--acc)}
-  .pitch{background:linear-gradient(var(--pitch),var(--pitch2));border:1px solid var(--line);border-radius:12px;padding:12px 8px;min-height:420px}
+  .pitch{background:linear-gradient(var(--pitch),var(--pitch2));border:1px solid var(--line);border-radius:12px;padding:16px 8px;min-height:360px;display:flex;flex-direction:column;justify-content:space-evenly}
   .pline{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0}
   .slot{width:82px;text-align:center;font-size:11px}
   .slot .shirt{position:relative;width:46px;height:46px;margin:0 auto 3px;border-radius:50%;background:#0c1626;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
@@ -56,7 +56,8 @@
   .pool .prow{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:7px 9px;margin:6px 0;background:var(--card)}
   .pool .prow .add{margin-left:auto;border:1px solid var(--line);background:transparent;color:var(--acc);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:16px}
   .pool .prow .add:disabled{color:var(--mut);cursor:not-allowed;opacity:.5}
-  .posfilter button{font-size:12px;padding:5px 10px}
+  .posfilter button{font-size:12px;padding:5px 10px;background:transparent;color:var(--mut);cursor:pointer}
+  .posfilter button.active{background:#1d2740;border-color:var(--acc2);color:var(--txt)}
 </style>
 </head>
 <body>
@@ -265,7 +266,7 @@ function renderBuilder(){
       <div class="muted" style="text-align:center;font-size:12px;margin-top:6px">Tap a player to remove</div>
     </div>`;
 
-  const posBtns = ["GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===POOL_POS?"active":""}" onclick="sbPos('${p}')" style="${p===POOL_POS?"border-color:var(--acc2);color:var(--txt)":""}">${p}</button>`).join(" ");
+  const posBtns = ["GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===POOL_POS?"active":""}" onclick="sbPos('${p}')">${p}</button>`).join(" ");
   view.innerHTML = bar + `<div class="sb-wrap">${pitch}
      <div class="pool">
        <input id="sbsearch" placeholder="Search any player by name…" value="${esc(SBQ)}" oninput="sbSearch(this.value)" style="width:100%;margin-bottom:6px">
@@ -276,7 +277,7 @@ function renderBuilder(){
 
 function poolRowsHTML(){
   const q = SBQ.trim().toLowerCase();
-  let cands = q ? ALL.filter(p=>(p.web_name||"").toLowerCase().includes(q))
+  let cands = q ? ALL.filter(p=>((p.full_name||"")+" "+(p.web_name||"")).toLowerCase().includes(q))
                 : ALL.filter(p=>p.position===POOL_POS);
   cands = cands.sort((a,b)=>b.pred_points-a.pred_points).slice(0, q?40:50);
   if(!cands.length) return `<div class="muted" style="padding:10px 2px">No players match “${esc(SBQ)}”.</div>`;
