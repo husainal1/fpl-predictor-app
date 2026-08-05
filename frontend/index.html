@@ -42,19 +42,21 @@
   .sb-bar b{color:var(--txt)}
   .sb-bar .warn{color:#ff8b8b}
   .sb-bar .ok{color:var(--acc)}
-  .pitch{position:relative;border:1px solid var(--line);border-radius:12px;padding:18px 10px;min-height:430px;display:flex;flex-direction:column;justify-content:space-around;
+  .pitch{position:relative;width:100%;max-width:470px;margin:0 auto;aspect-ratio:3/4;overflow:hidden;
+    border:1px solid var(--line);border-radius:12px;padding:14px 3% 12px;
+    display:flex;flex-direction:column;justify-content:space-between;
     background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='rgba(255,255,255,0.16)' stroke-width='1.5'%3E%3Cline x1='0' y1='210' x2='300' y2='210'/%3E%3Ccircle cx='150' cy='210' r='40'/%3E%3Ccircle cx='150' cy='210' r='2' fill='rgba(255,255,255,0.16)'/%3E%3Crect x='96' y='0' width='108' height='52'/%3E%3Crect x='126' y='0' width='48' height='20'/%3E%3Crect x='96' y='368' width='108' height='52'/%3E%3Crect x='126' y='400' width='48' height='20'/%3E%3C/g%3E%3C/svg%3E"),
-      repeating-linear-gradient(180deg,#1a5c30 0 42px,#17512b 42px 84px);
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 400' preserveAspectRatio='none'%3E%3Crect x='128' y='0' width='44' height='7' fill='rgba(255,255,255,0.12)'/%3E%3Cg fill='none' stroke='rgba(255,255,255,0.18)' stroke-width='1.4'%3E%3Crect x='90' y='2' width='120' height='58'/%3E%3Crect x='124' y='2' width='52' height='22'/%3E%3Cpath d='M120 60 A 34 28 0 0 0 180 60'/%3E%3Cline x1='0' y1='398' x2='300' y2='398'/%3E%3Cpath d='M112 400 A 40 34 0 0 1 188 400'/%3E%3C/g%3E%3C/svg%3E"),
+      repeating-linear-gradient(180deg,#1a5c30 0 40px,#17512b 40px 80px);
     background-size:100% 100%,auto;background-repeat:no-repeat,repeat}
-  .pline{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin:4px 0}
-  .slot{width:80px;text-align:center;font-size:11px}
-  .slot .shirt{position:relative;width:50px;height:50px;margin:0 auto 3px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-  .slot .shirt img.kit{width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
-  .slot .shirt .empty{width:40px;height:40px;border-radius:9px;border:1.5px dashed rgba(255,255,255,.35);background:rgba(0,0,0,.2);color:rgba(255,255,255,.6);font-size:18px;display:flex;align-items:center;justify-content:center}
+  .pline{display:flex;flex-wrap:nowrap;justify-content:center;align-items:center;gap:2%;flex:1}
+  .slot{width:clamp(52px,18%,84px);text-align:center;font-size:11px;display:flex;flex-direction:column;align-items:center}
+  .slot .shirt{position:relative;width:46px;height:46px;margin:0 auto 3px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .slot .shirt img.kit{width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+  .slot .shirt .empty{width:38px;height:38px;border-radius:9px;border:1.5px dashed rgba(255,255,255,.4);background:rgba(0,0,0,.22);color:rgba(255,255,255,.7);font-size:17px;display:flex;align-items:center;justify-content:center}
   .capbadge{position:absolute;top:-3px;right:8px;background:var(--gold);color:#1a1400;border-radius:50%;width:17px;height:17px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.5)}
   .gold{color:var(--gold)}
-  .slot .snm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-weight:600;font-size:11px;background:rgba(6,18,10,.6);border-radius:4px;padding:1px 4px}
+  .slot .snm{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;font-weight:600;font-size:11px;background:rgba(6,18,10,.6);border-radius:4px;padding:1px 4px}
   .slot .spt{color:#08160c;font-weight:800;font-size:11px;background:var(--acc);border-radius:4px;margin:2px auto 0;display:inline-block;padding:0 7px;font-variant-numeric:tabular-nums}
   .slot .sopp{color:#e2ebf7;font-size:9.5px;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,.8)}
   .slot .empty-lbl{color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.7)}
