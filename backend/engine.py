@@ -428,6 +428,12 @@ def build_state(session_get=get_json) -> EngineState:
         "owned_pct": pd.to_numeric(elements["selected_by_percent"], errors="coerce"),
     })
     players_now = players_now[players_now["position"].isin(VALID_POS)].copy()
+    # Drop players FPL flags as gone for the season. Status "u" means a permanent
+    # transfer out of the league or a loan away (e.g. Digne, "Has joined PSG
+    # permanently") - they will not feature for a PL club, so they should never
+    # appear in picks or the squad. Injuries/doubts/suspensions (i/d/s) are kept,
+    # since those players still play; their minutes risk is handled by damping.
+    players_now = players_now[players_now["status"] != "u"].copy()
     players_now["name_key"] = players_now["full_name"].map(norm_name)
 
     # opponent id -> name per season, from the archive master list
