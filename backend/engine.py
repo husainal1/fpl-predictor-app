@@ -374,7 +374,7 @@ def horizon_run(state: "EngineState", n=5):
     gws = list(range(state.next_gw, min(state.next_gw + n, 39)))
     frames = [predict_gw(state.players_now, state.fixtures, state.team_name_now,
                          team_strength, state.recent, state.model, g, statuses,
-                         chances=chances, damp=state.season_started) for g in gws]
+                         chances=chances, damp=True) for g in gws]
     frames = [f for f in frames if not f.empty]
     if not frames:
         return pd.DataFrame()
@@ -510,8 +510,12 @@ def build_state(session_get=get_json) -> EngineState:
     statuses = dict(zip(players_now["player_id"], players_now["status"]))
     chances = dict(zip(players_now["player_id"], players_now["chance"]))
     cur_only = _make_current_only_strength(cur_strength)
+    # Always apply the availability penalty, including pre-season. FPL's injury and
+    # suspension flags are accurate before kickoff, so an injured player (e.g. Araujo,
+    # unknown return) should be zeroed now, not just once the season starts. The graded
+    # multiplier leaves fully available players (status "a") completely untouched.
     pred = predict_gw(players_now, fixtures, team_name_now, cur_only, recent, model, next_gw,
-                      statuses, chances=chances, damp=season_started)
+                      statuses, chances=chances, damp=True)
     own = dict(zip(players_now["player_id"], players_now["owned_pct"]))
     pred["owned_pct"] = pred["player_id"].map(own).fillna(0.0)
     pred = pred.sort_values("pred_points", ascending=False).reset_index(drop=True)
