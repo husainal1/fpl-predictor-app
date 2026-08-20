@@ -245,6 +245,9 @@ class EngineState:
     def horizon(self, n=5):
         return horizon_run(self, n)
 
+    def forecast(self, n=5):
+        return forecast_run(self, n)
+
     def player(self, pid):
         row = self.predictions[self.predictions["player_id"] == pid]
         return None if row.empty else row.iloc[0].to_dict()
@@ -383,6 +386,49 @@ def horizon_run(state: "EngineState", n=5):
            .agg(games=("gw", "nunique"), horizon_points=("pred_points", "sum")).reset_index())
     run["per_game"] = (run["horizon_points"] / run["games"]).round(2)
     return run.sort_values("horizon_points", ascending=False)
+
+
+def forecast_run(state: "EngineState", n=5):
+    """Per-gameweek predicted points for every current player over the next n GWs.
+
+    Returns (gws, players): gws is the list of gameweek numbers, players is a list
+    of dicts sorted by total descending, each with a gw_points list aligned to gws
+    (double gameweeks are summed within a GW, blanks are 0). Availability damping
+    is applied so injured/departed players don't top the table.
+    """
+    statuses = dict(zip(state.players_now["player_id"],
+                        state.players_now.get("status", pd.Series(["a"] * len(state.players_now)))))
+    chances = dict(zip(state.players_now["player_id"],
+                       state.players_now.get("chance", pd.Series([None] * len(state.players_now)))))
+    team_strength = _make_current_only_strength(state.cur_strength)
+    gws = list(range(state.next_gw, min(state.next_gw + n, 39)))
+    frames = [predict_gw(state.players_now, state.fixtures, state.team_name_now,
+                         team_strength, state.recent, state.model, g, statuses,
+                         chances=chances, damp=True) for g in gws]
+    frames = [f for f in frames if not f.empty]
+    if not frames:
+        return gws, []
+    allgw = pd.concat(frames, ignore_index=True)
+    per = allgw.groupby(["player_id", "gw"])["pred_points"].sum()
+    meta = state.predictions.drop_duplicates("player_id").set_index("player_id")
+    out = []
+    for pid, grp in per.groupby(level=0):
+        if pid not in meta.index:
+            continue
+        by_gw = grp.droplevel(0)
+        row_pts = [round(float(by_gw.get(g, 0.0)), 2) for g in gws]
+        m = meta.loc[pid]
+        own = m["owned_pct"] if "owned_pct" in m.index else 0.0
+        out.append({
+            "player_id": int(pid),
+            "web_name": m["web_name"], "team_name": m["team_name"],
+            "position": m["position"], "price": round(float(m["price"]), 1),
+            "owned_pct": round(float(own), 1) if pd.notna(own) else 0.0,
+            "gw_points": row_pts,
+            "total": round(sum(row_pts), 2),
+        })
+    out.sort(key=lambda r: r["total"], reverse=True)
+    return gws, out
 
 
 def _make_current_only_strength(cur_strength):

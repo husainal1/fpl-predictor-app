@@ -143,6 +143,15 @@ def horizon(n: int = 5, limit: int = 30):
                                  "price", "games", "horizon_points", "per_game"]))}
 
 
+@app.get("/api/forecast")
+def forecast(weeks: int = 5):
+    st = engine.get_state()
+    weeks = max(1, min(6, weeks))
+    gws, players = st.forecast(n=weeks)
+    players = _add_crest(players)
+    return {"from_gw": st.next_gw, "gws": gws, "players": players}
+
+
 @app.get("/api/value")
 def value():
     st = engine.get_state()
