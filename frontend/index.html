@@ -72,6 +72,24 @@
   .pool .prow .add:disabled{color:var(--mut);cursor:not-allowed;opacity:.5}
   .posfilter button{font-size:12px;padding:5px 10px;background:transparent;color:var(--mut);cursor:pointer}
   .posfilter button.active{background:#1d2740;border-color:var(--acc2);color:var(--txt)}
+  /* ---- points forecast table ---- */
+  .fcbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 10px}
+  .fcwrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
+  table.fc{width:100%;border-collapse:collapse;font-size:13px;min-width:540px}
+  table.fc th,table.fc td{padding:9px 11px;text-align:right;white-space:nowrap}
+  table.fc thead th{position:sticky;top:0;background:#141c2e;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--line);z-index:1}
+  table.fc th.pl,table.fc td.pl{text-align:left}
+  table.fc tbody tr{border-bottom:1px solid #1b2438;cursor:pointer}
+  table.fc tbody tr:hover{background:#151d2f}
+  table.fc td{font-variant-numeric:tabular-nums}
+  table.fc td.tot,table.fc th.tot{font-weight:800;color:var(--gold)}
+  table.fc .pcell{display:flex;align-items:center;gap:9px}
+  table.fc .pcell img{width:22px;height:26px;object-fit:contain;flex:none}
+  table.fc .rk{color:var(--mut);min-width:20px;text-align:right;font-variant-numeric:tabular-nums}
+  table.fc .pcol{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+  table.fc .pnm{font-weight:600}
+  table.fc .psub{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}
+  .viewmore{display:block;margin:12px auto 0;background:var(--card);border:1px solid var(--line);color:var(--acc2);border-radius:9px;padding:8px 16px;cursor:pointer;font-size:13px}
 </style>
 </head>
 <body>
@@ -84,7 +102,7 @@
     <button data-tab="picks" class="active">Top picks</button>
     <button data-tab="squad">Best XI</button>
     <button data-tab="builder">Squad builder</button>
-    <button data-tab="horizon">Fixture runs</button>
+    <button data-tab="forecast">Points forecast</button>
     <button data-tab="value">Value &amp; differentials</button>
     <span class="ctl" id="ctl"></span>
   </nav>
@@ -99,6 +117,7 @@ const ctl  = document.getElementById("ctl");
 let TAB = "picks";
 let ALL = null;                       // all players, cached for the builder
 const SB = { picked: {} };            // squad builder selection: id -> player
+const FC = { weeks:5, pos:"ALL", shown:25, data:null, gws:[] };  // points forecast state
 const SQUAD_LIMITS = {GK:2, DEF:5, MID:5, FWD:3};
 const BUDGET = 100.0;
 
@@ -213,16 +232,8 @@ async function render(){
     else if(TAB==="builder"){
       await loadAll(); renderBuilder();
     }
-    else if(TAB==="horizon"){
-      ctl.innerHTML = `Weeks: <select id="nw">${[3,4,5,6].map(n=>`<option ${n===5?"selected":""}>${n}</option>`).join("")}</select>`;
-      const draw = async ()=>{
-        const n = document.getElementById("nw").value;
-        const box = document.getElementById("hbox"); if(box) box.innerHTML="Loading…";
-        const d = await g(`/api/horizon?n=${n}&limit=40`);
-        document.getElementById("hbox").innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`${num(p.horizon_points)} pts over ${p.games} games · ${num(p.per_game)}/game`)).join("")+`</div>`;
-      };
-      view.innerHTML = `<div class="card muted">Total predicted points over the next few gameweeks (doubles and blanks handled).</div><div id="hbox"></div>`;
-      document.getElementById("nw").onchange = draw; draw();
+    else if(TAB==="forecast"){
+      await loadForecast();
     }
     else if(TAB==="value"){
       const d = await g("/api/value");
@@ -320,6 +331,41 @@ window.renderPool = ()=>{
   const h=document.getElementById("poolhint"); if(h) h.textContent=(SBQ.trim()?"Search results":("Top "+POOL_POS+" by predicted points"))+" — tap + to add";
 };
 window.sbSearch = (q)=>{ SBQ=q; renderPool(); };
+
+/* ------------------------- points forecast ------------------------- */
+async function loadForecast(){
+  ctl.innerHTML=""; view.innerHTML=`<div class="loading">Loading forecast…</div>`;
+  const d = await g(`/api/forecast?weeks=${FC.weeks}`);
+  FC.data = d.players||[]; FC.gws = d.gws||[]; FC.shown = 25;
+  renderForecast();
+}
+function fcFiltered(){ return FC.pos==="ALL" ? FC.data : FC.data.filter(p=>p.position===FC.pos); }
+window.fcWeeks = (w)=>{ FC.weeks=+w; loadForecast(); };
+window.fcPos = (p)=>{ FC.pos=p; FC.shown=25; renderForecast(); };
+window.fcMore = ()=>{ FC.shown+=25; renderForecast(); };
+function renderForecast(){
+  const gws=FC.gws, rows=fcFiltered(), shown=rows.slice(0, FC.shown);
+  const wsel = `<select onchange="fcWeeks(this.value)">${[1,2,3,4,5].map(n=>`<option value="${n}" ${n===FC.weeks?"selected":""}>${n} GW</option>`).join("")}</select>`;
+  const posBtns = ["ALL","GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===FC.pos?"active":""}" onclick="fcPos('${p}')">${p==="ALL"?"All":p}</button>`).join(" ");
+  const head = `<tr><th class="pl">Player</th>${gws.map(gw=>`<th>GW${gw}</th>`).join("")}<th class="tot">Total</th></tr>`;
+  const body = shown.map((p,i)=>{
+    const cells = p.gw_points.map(v=>`<td>${(+v).toFixed(1)}</td>`).join("");
+    return `<tr onclick="explainInline(${p.player_id})">
+        <td class="pl"><span class="pcell"><span class="rk">${i+1}</span>${kitImg(p,'fckit')}
+          <span class="pcol"><span class="pnm">${esc(p.web_name)}</span>
+          <span class="psub">${esc(p.position)} · ${esc(p.team_name)} · £${p.price}m · ${p.owned_pct}%</span></span></span></td>
+        ${cells}<td class="tot">${(+p.total).toFixed(1)}</td></tr>`;
+  }).join("");
+  const more = rows.length>FC.shown
+    ? `<button class="viewmore" onclick="fcMore()">View 25 more (${rows.length-FC.shown} left)</button>` : "";
+  const span = gws.length ? `GW${gws[0]}–GW${gws[gws.length-1]}` : "";
+  view.innerHTML = `
+    <div class="fcbar">${wsel}<div class="posfilter row">${posBtns}</div>
+      <span class="muted" style="font-size:12px;margin-left:auto">Projected points ${span} · tap a player for the AI take</span></div>
+    <div class="fcwrap"><table class="fc"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    ${more}
+    <div id="explbox" style="margin-top:12px"></div>`;
+}
 boot();
 </script>
 </body>
