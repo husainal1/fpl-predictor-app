@@ -149,6 +149,9 @@ def forecast(weeks: int = 5):
     weeks = max(1, min(6, weeks))
     gws, players = st.forecast(n=weeks)
     players = _add_crest(players)
+    fn = dict(zip(st.players_now["player_id"], st.players_now["full_name"]))
+    for p in players:
+        p["full_name"] = fn.get(p.get("player_id"), p.get("web_name"))
     return {"from_gw": st.next_gw, "gws": gws, "players": players}
 
 
