@@ -452,7 +452,12 @@ def build_state(session_get=get_json) -> EngineState:
     cur_row = events[events["is_current"]]
     current_gw = int(cur_row["id"].iloc[0]) if len(cur_row) else 0
     next_gw = int(next_row["id"].iloc[0]) if len(next_row) else (current_gw + 1 if current_gw else 1)
-    season_started = finished_gws > 0
+    # The season is "live" as soon as real minutes have been recorded, not only
+    # once a whole gameweek is flagged finished. GW1 is marked in-progress for days
+    # (and FPL's data_checked lags further), so keying off finished gameweeks alone
+    # leaves the model in pre-season cold mode while real results already exist.
+    played_any = bool((pd.to_numeric(elements["minutes"], errors="coerce").fillna(0) > 0).any())
+    season_started = finished_gws > 0 or played_any
 
     team_name_now = dict(zip(teams_raw["id"], teams_raw["name"]))
     ts = teams_raw.copy()
