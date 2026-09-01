@@ -5,16 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>FPL Predictor</title>
 <style>
-  :root{--bg:#0f1420;--card:#182033;--line:#26304a;--txt:#e8edf7;--mut:#94a3c0;--acc:#37d67a;--acc2:#5b9dff;--gold:#ffcf5b;--pitch:#123a1e;--pitch2:#0f2f18;}
+  :root{--bg:#0f1420;--card:#182033;--line:#26304a;--txt:#e8edf7;--mut:#94a3c0;--acc:#37d67a;--acc2:#5b9dff;--gold:#ffcf5b;--pitch:#123a1e;--pitch2:#0f2f18;--thead:#141c2e;--hover:#151d2f;--active:var(--active);--soft:#111a2b;}
+  html[data-theme="light"]{--bg:#f4f6fb;--card:#ffffff;--line:#e3e8f1;--txt:#141b2c;--mut:#5c6784;--thead:#eef2f8;--hover:#f1f4fa;--active:#e7edfb;--soft:#f1f4fa;}
+  html,body{transition:background .2s,color .2s}
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
-  header{padding:22px 18px 8px;max-width:1000px;margin:0 auto}
+  header{padding:22px 18px 8px;max-width:1000px;margin:0 auto;position:relative}
   h1{margin:0;font-size:22px;letter-spacing:.2px}
   .sub{color:var(--mut);font-size:13px;margin-top:4px}
   main{max-width:1000px;margin:0 auto;padding:8px 18px 60px}
   nav{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}
   nav button{background:var(--card);color:var(--mut);border:1px solid var(--line);padding:8px 13px;border-radius:9px;cursor:pointer;font-size:13px}
-  nav button.active{color:var(--txt);border-color:var(--acc2);background:#1d2740}
+  nav button.active{color:var(--txt);border-color:var(--acc2);background:var(--active)}
   .ctl{margin-left:auto;color:var(--mut);font-size:13px;display:flex;align-items:center;gap:6px}
   select,input{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:9px 0}
@@ -26,7 +28,7 @@
   .pts{margin-left:auto;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
   .meta{color:var(--mut);font-size:12.5px;margin-top:2px}
   .why{background:transparent;border:1px solid var(--line);color:var(--acc2);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12.5px}
-  .exp{margin-top:10px;padding:10px 12px;background:#111a2b;border:1px solid var(--line);border-radius:9px;font-size:14px}
+  .exp{margin-top:10px;padding:10px 12px;background:var(--soft);border:1px solid var(--line);border-radius:9px;font-size:14px}
   .exp .fb{margin-top:8px;display:flex;gap:8px;align-items:center;color:var(--mut);font-size:12px}
   .exp .fb button{background:transparent;border:1px solid var(--line);border-radius:7px;padding:3px 9px;cursor:pointer;font-size:14px}
   .muted{color:var(--mut)}
@@ -71,16 +73,16 @@
   .pool .prow .add{border:1px solid var(--line);background:transparent;color:var(--acc);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:16px;flex:none}
   .pool .prow .add:disabled{color:var(--mut);cursor:not-allowed;opacity:.5}
   .posfilter button{font-size:12px;padding:5px 10px;background:transparent;color:var(--mut);cursor:pointer}
-  .posfilter button.active{background:#1d2740;border-color:var(--acc2);color:var(--txt)}
+  .posfilter button.active{background:var(--active);border-color:var(--acc2);color:var(--txt)}
   /* ---- points forecast table ---- */
   .fcbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 10px}
   .fcwrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
   table.fc{width:100%;border-collapse:collapse;font-size:13px;min-width:540px}
   table.fc th,table.fc td{padding:9px 11px;text-align:right;white-space:nowrap}
-  table.fc thead th{position:sticky;top:0;background:#141c2e;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--line);z-index:1}
+  table.fc thead th{position:sticky;top:0;background:var(--thead);color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--line);z-index:1}
   table.fc th.pl,table.fc td.pl{text-align:left}
-  table.fc tbody tr{border-bottom:1px solid #1b2438;cursor:pointer}
-  table.fc tbody tr:hover{background:#151d2f}
+  table.fc tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
+  table.fc tbody tr:hover{background:var(--hover)}
   table.fc td{font-variant-numeric:tabular-nums}
   table.fc td.tot,table.fc th.tot{font-weight:800;color:var(--gold)}
   table.fc .pcell{display:flex;align-items:center;gap:9px}
@@ -90,12 +92,19 @@
   table.fc .pnm{font-weight:600}
   table.fc .psub{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}
   .viewmore{display:block;margin:12px auto 0;background:var(--card);border:1px solid var(--line);color:var(--acc2);border-radius:9px;padding:8px 16px;cursor:pointer;font-size:13px}
+  .themebtn{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:600}
+  .fcbar input,.fcbar select{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:13px}
+  .scwrap{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:14px;overflow-x:auto}
+  .sclegend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:8px}
+  .sclegend .lg{display:flex;align-items:center;gap:6px}
+  .scdot{width:10px;height:10px;border-radius:50%;display:inline-block}
 </style>
 </head>
 <body>
 <header>
   <h1>⚽ FPL Predictor</h1>
   <div class="sub" id="sub">Loading model…</div>
+  <button id="themeToggle" class="themebtn" style="position:absolute;top:22px;right:18px" onclick="toggleTheme()">🌙 Dark</button>
 </header>
 <main>
   <nav>
@@ -103,6 +112,7 @@
     <button data-tab="squad">Best XI</button>
     <button data-tab="builder">Squad builder</button>
     <button data-tab="forecast">Points forecast</button>
+    <button data-tab="stats">Stats</button>
     <button data-tab="value">Value &amp; differentials</button>
     <span class="ctl" id="ctl"></span>
   </nav>
@@ -235,11 +245,11 @@ async function render(){
     else if(TAB==="forecast"){
       await loadForecast();
     }
+    else if(TAB==="stats"){
+      await loadStats();
+    }
     else if(TAB==="value"){
-      const d = await g("/api/value");
-      const list = a=>`<div class="grid">`+a.map(p=>playerCard(p, p.pts_per_million?`${num(p.pts_per_million)} pts per £m`:`proj ${num(p.pred_points)} pts`)).join("")+`</div>`;
-      view.innerHTML = `<div class="xi"><h3>Best value (points per £m)</h3>${list(d.best_value)}
-        <h3>Differentials (under 10% owned)</h3>${list(d.differentials)}</div>`;
+      await loadValue();
     }
   }catch(e){ view.innerHTML = `<div class="loading">Could not load. Is the API running?</div>`; }
 }
@@ -377,6 +387,61 @@ function renderForecast(){
     <div id="explbox" style="margin-top:12px"></div>`;
   const s=document.getElementById("fcsearch");
   if(s&&FC.q){ s.focus(); s.setSelectionRange(s.value.length,s.value.length); }
+}
+
+/* ------------------------- theme (light / dark) ------------------------- */
+function applyTheme(t){document.documentElement.dataset.theme=t;const b=document.getElementById("themeToggle");if(b)b.textContent=t==="light"?"☀ Light":"🌙 Dark";}
+window.toggleTheme=()=>{const nx=document.documentElement.dataset.theme==="light"?"dark":"light";applyTheme(nx);try{localStorage.setItem("fpl_theme",nx)}catch(e){}};
+(function(){let t;try{t=localStorage.getItem("fpl_theme")}catch(e){}applyTheme(t==="light"?"light":"dark");})();
+
+/* ------------------------- stats tab ------------------------- */
+const ST={data:null,sortKey:"total_points",dir:-1,pos:"ALL",q:""};
+const STCOLS=[["price","£",1],["total_points","Pts",0],["goals","G",0],["assists","A",0],["xg","xG",2],["xa","xA",2],["xgi","xGI",2],["minutes","Min",0],["bonus","Bonus",0],["defcon","DefC",0],["owned_pct","Own%",1]];
+async function loadStats(){ctl.innerHTML="";view.innerHTML=`<div class="loading">Loading stats…</div>`;const d=await g("/api/playerstats");ST.data=d.players||[];renderStats();}
+function stFiltered(){const q=ST.q.trim().toLowerCase();let r=(ST.data||[]).slice();if(q)r=r.filter(p=>((p.full_name||"")+" "+(p.web_name||"")).toLowerCase().includes(q));else if(ST.pos!=="ALL")r=r.filter(p=>p.position===ST.pos);r.sort((a,b)=>{const x=+a[ST.sortKey]||(a[ST.sortKey]||""),y=+b[ST.sortKey]||(b[ST.sortKey]||"");return (x<y?-1:x>y?1:0)*ST.dir;});return r;}
+window.stSort=(k)=>{if(ST.sortKey===k)ST.dir*=-1;else{ST.sortKey=k;ST.dir=(k==="web_name"?1:-1);}const t=document.getElementById("sttable");if(t)t.innerHTML=stTableHTML();};
+window.stPos=(p)=>{ST.pos=p;ST.q="";renderStats();};
+window.stSearch=(q)=>{ST.q=q;const t=document.getElementById("sttable");if(t)t.innerHTML=stTableHTML();};
+function stTableHTML(){
+  const rows=stFiltered().slice(0,80);
+  if(!rows.length)return `<div class="card muted">No players match.</div>`;
+  const ar=k=>ST.sortKey===k?(ST.dir<0?" ↓":" ↑"):"";
+  const head=`<tr><th class="pl" onclick="stSort('web_name')">Player${ar('web_name')}</th>`+STCOLS.map(c=>`<th onclick="stSort('${c[0]}')">${c[1]}${ar(c[0])}</th>`).join("")+`</tr>`;
+  const body=rows.map((p,i)=>{
+    const cells=STCOLS.map(c=>{const v=p[c[0]];const cls=c[0]==="total_points"?' class="tot"':'';return `<td${cls}>${(v==null||isNaN(+v))?"–":(+v).toFixed(c[2])}</td>`;}).join("");
+    return `<tr><td class="pl"><span class="pcell"><span class="rk">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td>${cells}</tr>`;
+  }).join("");
+  return `<div class="fcwrap"><table class="fc"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
+function renderStats(){
+  const posBtns=["ALL","GK","DEF","MID","FWD"].map(p=>`<button class="pill ${(p===ST.pos&&!ST.q.trim())?"active":""}" onclick="stPos('${p}')">${p==="ALL"?"All":p}</button>`).join(" ");
+  view.innerHTML=`<div class="fcbar"><div class="posfilter row">${posBtns}</div>
+    <input id="stsearch" placeholder="Search any player…" value="${esc(ST.q)}" oninput="stSearch(this.value)" style="min-width:170px">
+    <span class="muted" style="font-size:12px;margin-left:auto">Real season stats · tap a column to sort</span></div>
+    <div id="sttable">${stTableHTML()}</div>`;
+  const s=document.getElementById("stsearch");if(s&&ST.q){s.focus();s.setSelectionRange(s.value.length,s.value.length);}
+}
+
+/* ------------------------- value scatter ------------------------- */
+const VAL={data:null,pos:"ALL"};
+async function loadValue(){ctl.innerHTML="";view.innerHTML=`<div class="loading">Loading…</div>`;const d=await g("/api/predictions?limit=700");VAL.data=(d.players||[]).filter(p=>+p.pred_points>0);renderValue();}
+window.valPos=(p)=>{VAL.pos=p;renderValue();};
+function renderValue(){
+  let P=VAL.data||[]; if(VAL.pos!=="ALL")P=P.filter(p=>p.position===VAL.pos);
+  const posBtns=["ALL","GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===VAL.pos?"active":""}" onclick="valPos('${p}')">${p==="ALL"?"All":p}</button>`).join(" ");
+  const bar=`<div class="fcbar"><div class="posfilter row">${posBtns}</div><span class="muted" style="font-size:12px;margin-left:auto">Projected points vs price · top-left = best value · ringed = differentials (&lt;10% owned)</span></div>`;
+  if(!P.length){view.innerHTML=bar+`<div class="card muted">No data.</div>`;return;}
+  const W=820,H=460,mL=48,mR=20,mT=16,mB=44;
+  const maxY=Math.max(6,Math.ceil(Math.max.apply(null,P.map(p=>+p.pred_points))));
+  const x0=3.5,x1=Math.max(15,Math.ceil(Math.max.apply(null,P.map(p=>+p.price))))+0.5;
+  const X=v=>mL+(v-x0)/(x1-x0)*(W-mL-mR);
+  const Y=v=>H-mB-v/maxY*(H-mT-mB);
+  let grid="";
+  for(let gx=4;gx<=x1;gx+=2)grid+=`<line x1="${X(gx)}" y1="${mT}" x2="${X(gx)}" y2="${H-mB}" stroke="var(--line)"/><text x="${X(gx)}" y="${H-mB+18}" fill="var(--mut)" font-size="11" text-anchor="middle">£${gx}</text>`;
+  for(let gy=0;gy<=maxY;gy+=2)grid+=`<line x1="${mL}" y1="${Y(gy)}" x2="${W-mR}" y2="${Y(gy)}" stroke="var(--line)"/><text x="${mL-8}" y="${Y(gy)+4}" fill="var(--mut)" font-size="11" text-anchor="end">${gy}</text>`;
+  const dots=P.map(p=>{const own=+p.owned_pct;const diff=own<10;const r=diff?7:5;const fill=diff?'var(--acc)':'color-mix(in srgb,var(--mut) 55%,transparent)';const ring=diff?`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r+3}" fill="none" stroke="var(--acc)" stroke-width="1.3" opacity="0.5"/>`:'';const lbl=(+p.pred_points>=maxY*0.62)?`<text x="${X(+p.price)+r+3}" y="${Y(+p.pred_points)+4}" fill="var(--txt)" font-size="10.5" font-weight="600">${esc(p.web_name)}</text>`:'';return ring+`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r}" fill="${fill}"><title>${esc(p.web_name)} — £${p.price}m · ${num(p.pred_points)} pts · ${p.owned_pct}% owned</title></circle>`+lbl;}).join("");
+  view.innerHTML=bar+`<div class="scwrap"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Value scatter of projected points versus price">${grid}<text x="${W/2}" y="${H-6}" fill="var(--mut)" font-size="12" text-anchor="middle">Price (£m)</text><text transform="translate(14,${H/2}) rotate(-90)" fill="var(--mut)" font-size="12" text-anchor="middle">Projected points</text>${dots}</svg>
+   <div class="sclegend"><span class="lg"><span class="scdot" style="background:var(--acc)"></span>Differential (&lt;10% owned)</span><span class="lg"><span class="scdot" style="background:var(--mut)"></span>Template pick</span></div></div>`;
 }
 boot();
 </script>
