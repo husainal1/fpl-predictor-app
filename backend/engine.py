@@ -68,6 +68,10 @@ KEEP = ["total_points", "minutes", "goals_scored", "assists", "ict_index",
 
 CACHE_PATH = os.environ.get("FPL_CACHE_PATH", "/tmp/fpl_engine_cache.pkl")
 CACHE_TTL_SECONDS = int(os.environ.get("FPL_CACHE_TTL", 6 * 60 * 60))  # 6h
+# A model trained once in the notebook and shipped as JSON. When present, the app
+# LOADS it and only does (deterministic) inference, so it reproduces the notebook's
+# numbers exactly instead of training its own model. Falls back to training if absent.
+MODEL_FILE = os.environ.get("FPL_MODEL_FILE", os.path.join(os.path.dirname(__file__), "fpl_model.json"))
 
 
 # --------------------------------------------------------------------------- #
@@ -528,33 +532,47 @@ def build_state(session_get=get_json) -> EngineState:
 
     team_strength = _team_strength_fn(hist, cur_strength)
 
-    # features + train
+    # features
     fe = add_features(hist, team_strength)
     fe["y"] = pd.to_numeric(fe["total_points"], errors="coerce")
     train = fe.dropna(subset=["y", "minutes_lag1", "total_points_lag1"]).copy()
     X = train[FEATURES].fillna(0.0)
     y = train["y"].astype(float)
-    groups = train["name_key"]
     baseline = train["total_points_roll3_mean"].fillna(train["total_points_lag1"]).fillna(0)
 
-    gkf = GroupKFold(n_splits=5)
-    oof = np.zeros(len(train))
-    for tr, va in gkf.split(X, y, groups):
-        m = XGBRegressor(n_estimators=600, learning_rate=0.05, max_depth=6, subsample=0.8,
-                         colsample_bytree=0.8, min_child_weight=5, random_state=42,
-                         n_jobs=-1, tree_method="hist")
-        m.fit(X.iloc[tr], y.iloc[tr], verbose=False)
-        oof[va] = m.predict(X.iloc[va])
-    metrics = {
-        "rows": int(len(train)),
-        "model_mae": float(mean_absolute_error(y, oof)),
-        "baseline_mae": float(mean_absolute_error(y, baseline)),
-    }
-
-    model = XGBRegressor(n_estimators=800, learning_rate=0.04, max_depth=6, subsample=0.9,
-                         colsample_bytree=0.9, min_child_weight=5, random_state=42,
-                         n_jobs=-1, tree_method="hist")
-    model.fit(X, y, verbose=False)
+    if os.path.exists(MODEL_FILE):
+        # Serve the exact model trained in the notebook. Inference is deterministic,
+        # so predictions match the notebook to the decimal, and the build is much
+        # lighter/faster because it skips training entirely.
+        model = XGBRegressor()
+        model.load_model(MODEL_FILE)
+        metrics = {
+            "rows": int(len(train)),
+            "model_mae": float(mean_absolute_error(y, model.predict(X))),
+            "baseline_mae": float(mean_absolute_error(y, baseline)),
+            "source": "loaded",
+        }
+    else:
+        # Fallback: no shipped model, so train one here (deterministic single thread).
+        groups = train["name_key"]
+        gkf = GroupKFold(n_splits=5)
+        oof = np.zeros(len(train))
+        for tr, va in gkf.split(X, y, groups):
+            m = XGBRegressor(n_estimators=600, learning_rate=0.05, max_depth=6, subsample=0.8,
+                             colsample_bytree=0.8, min_child_weight=5, random_state=42,
+                             n_jobs=1, tree_method="hist")
+            m.fit(X.iloc[tr], y.iloc[tr], verbose=False)
+            oof[va] = m.predict(X.iloc[va])
+        model = XGBRegressor(n_estimators=800, learning_rate=0.04, max_depth=6, subsample=0.9,
+                             colsample_bytree=0.9, min_child_weight=5, random_state=42,
+                             n_jobs=1, tree_method="hist")
+        model.fit(X, y, verbose=False)
+        metrics = {
+            "rows": int(len(train)),
+            "model_mae": float(mean_absolute_error(y, oof)),
+            "baseline_mae": float(mean_absolute_error(y, baseline)),
+            "source": "trained",
+        }
 
     # next-GW predictions
     recent = latest_form(hist)
