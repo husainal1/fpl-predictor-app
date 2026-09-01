@@ -155,6 +155,60 @@ def forecast(weeks: int = 5):
     return {"from_gw": st.next_gw, "gws": gws, "players": players}
 
 
+_STATS_CACHE = {"at": 0.0, "data": None}
+
+
+@app.get("/api/playerstats")
+def playerstats():
+    import time as _t
+    if _STATS_CACHE["data"] is not None and (_t.time() - _STATS_CACHE["at"]) < 1800:
+        return _STATS_CACHE["data"]
+    b = engine.get_json(f"{engine.BASE}/bootstrap-static/")
+    tname = {t["id"]: t["name"] for t in b.get("teams", [])}
+    posmap = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
+
+    def fnum(e, k):
+        try:
+            return round(float(e.get(k) or 0), 2)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def inum(e, k):
+        try:
+            return int(float(e.get(k) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    out = []
+    for e in b.get("elements", []):
+        pos = posmap.get(e.get("element_type"))
+        if pos is None:
+            continue
+        out.append({
+            "player_id": e["id"],
+            "web_name": e.get("web_name"),
+            "full_name": (str(e.get("first_name", "")) + " " + str(e.get("second_name", ""))).strip(),
+            "team_name": tname.get(e.get("team")),
+            "position": pos,
+            "price": round((e.get("now_cost") or 0) / 10.0, 1),
+            "total_points": inum(e, "total_points"),
+            "goals": inum(e, "goals_scored"),
+            "assists": inum(e, "assists"),
+            "xg": fnum(e, "expected_goals"),
+            "xa": fnum(e, "expected_assists"),
+            "xgi": fnum(e, "expected_goal_involvements"),
+            "minutes": inum(e, "minutes"),
+            "bonus": inum(e, "bonus"),
+            "defcon": inum(e, "defensive_contribution"),
+            "owned_pct": fnum(e, "selected_by_percent"),
+        })
+    out.sort(key=lambda r: r["total_points"], reverse=True)
+    result = {"players": _add_crest(out)}
+    _STATS_CACHE["data"] = result
+    _STATS_CACHE["at"] = _t.time()
+    return result
+
+
 @app.get("/api/value")
 def value():
     st = engine.get_state()
