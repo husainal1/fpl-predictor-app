@@ -98,6 +98,24 @@
   .sclegend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:8px}
   .sclegend .lg{display:flex;align-items:center;gap:6px}
   .scdot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  /* ---- landing / hero ---- */
+  .hero{text-align:center;padding:48px 16px 26px;max-width:760px;margin:0 auto}
+  .hero h2{font-size:clamp(24px,4vw,32px);line-height:1.18;margin:0 0 14px;letter-spacing:.2px}
+  .hero .lead{font-size:16px;color:var(--mut);margin:0 auto 16px;max-width:620px;line-height:1.55}
+  .hero .herometa{font-size:13px;color:var(--mut);margin:0 0 24px}
+  .herocta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .cta{background:var(--acc);color:#08160c;border:0;border-radius:10px;padding:12px 20px;font-size:14px;font-weight:800;cursor:pointer}
+  .cta.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+  .feats{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:28px auto;max-width:920px}
+  .feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;cursor:pointer;transition:border-color .15s,transform .1s}
+  .feat:hover{border-color:var(--acc);transform:translateY(-2px)}
+  .feat .fic{font-size:24px;margin-bottom:8px}
+  .feat h3{margin:0 0 6px;font-size:15px}
+  .feat p{margin:0;font-size:13px;color:var(--mut);line-height:1.5}
+  .soon{text-align:center;color:var(--mut);font-size:13px;border:1px dashed var(--line);border-radius:12px;padding:14px 16px;max-width:660px;margin:0 auto 26px}
+  .seg2{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg2 button{background:transparent;color:var(--mut);border:0;padding:6px 13px;cursor:pointer;font-size:13px;font-weight:600}
+  .seg2 button.on{background:var(--acc);color:#08160c}
 </style>
 </head>
 <body>
@@ -108,7 +126,8 @@
 </header>
 <main>
   <nav>
-    <button data-tab="picks" class="active">Top picks</button>
+    <button data-tab="home" class="active">Home</button>
+    <button data-tab="picks">Top picks</button>
     <button data-tab="squad">Best XI</button>
     <button data-tab="builder">Squad builder</button>
     <button data-tab="forecast">Points forecast</button>
@@ -124,7 +143,8 @@ const API = window.API_BASE || "";
 const view = document.getElementById("view");
 const sub  = document.getElementById("sub");
 const ctl  = document.getElementById("ctl");
-let TAB = "picks";
+let TAB = "home";
+let HEALTH = null;
 let ALL = null;                       // all players, cached for the builder
 const SB = { picked: {} };            // squad builder selection: id -> player
 const FC = { weeks:5, pos:"ALL", shown:25, data:null, gws:[], q:"" };  // points forecast state
@@ -149,7 +169,7 @@ function kitImg(p, cls){
 }
 
 async function boot(){
-  try{ const h = await g("/health");
+  try{ const h = await g("/health"); HEALTH=h;
     const m = h.metrics||{};
     sub.innerHTML = `Predicting <b>GW${h.next_gw}</b> · model MAE ${m.model_mae?.toFixed(2)??"—"} vs baseline ${m.baseline_mae?.toFixed(2)??"—"} · ${h.season_started?"live season":"pre-season (last seasons' form)"}`;
   }catch(e){ sub.textContent="API not reachable."; }
@@ -216,7 +236,10 @@ async function loadAll(){
 async function render(){
   ctl.innerHTML=""; view.innerHTML=`<div class="loading">Loading…</div>`;
   try{
-    if(TAB==="picks"){
+    if(TAB==="home"){
+      renderHome();
+    }
+    else if(TAB==="picks"){
       const d = await g("/api/predictions?limit=40");
       view.innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`proj ${num(p.pred_points)} pts`)).join("")+`</div>`;
     }
@@ -422,26 +445,72 @@ function renderStats(){
   const s=document.getElementById("stsearch");if(s&&ST.q){s.focus();s.setSelectionRange(s.value.length,s.value.length);}
 }
 
-/* ------------------------- value scatter ------------------------- */
-const VAL={data:null,pos:"ALL"};
-async function loadValue(){ctl.innerHTML="";view.innerHTML=`<div class="loading">Loading…</div>`;const d=await g("/api/predictions?limit=700");VAL.data=(d.players||[]).filter(p=>+p.pred_points>0);renderValue();}
+/* ------------------------- landing / home ------------------------- */
+window.goTab=(t)=>{TAB=t;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));render();};
+const FEATS=[
+  ["🎯","Top picks","picks","The highest projected scorers for the next gameweek, each with an AI take on why."],
+  ["🏆","Best XI","squad","The optimal squad and starting XI your budget can buy — captain picked for you."],
+  ["🧩","Squad builder","builder","Build and cost a 15-man squad by hand. Soon: import your real team and tinker."],
+  ["📅","Points forecast","forecast","Per-gameweek projections for every player across the next five weeks, sortable."],
+  ["📊","Stats","stats","Real accumulated season numbers — goals, xG, xGI, minutes, bonus and more."],
+  ["💎","Value","value","The best points per £m and the low-owned gems worth a differential punt."]
+];
+function renderHome(){
+  const h=HEALTH||{},m=h.metrics||{};const gw=h.next_gw||"—";
+  view.innerHTML=`
+   <section class="hero">
+     <h2>Smarter FPL, powered by a model that learns.</h2>
+     <p class="lead">Machine-learning point projections for every Premier League player, so you can pick, build and optimise your Fantasy team with real numbers instead of hunches.</p>
+     <p class="herometa">Predicting <b>GW${gw}</b>${m.model_mae?` · beats a form-average baseline (${m.model_mae.toFixed(2)} vs ${(m.baseline_mae||0).toFixed(2)} MAE)`:""} · ${h.season_started?"live season data":"pre-season form"}</p>
+     <div class="herocta"><button class="cta" onclick="goTab('picks')">See this week's top picks →</button><button class="cta ghost" onclick="goTab('builder')">Build your team →</button></div>
+   </section>
+   <div class="feats">${FEATS.map(f=>`<div class="feat" onclick="goTab('${f[2]}')"><div class="fic">${f[0]}</div><h3>${esc(f[1])}</h3><p>${esc(f[3])}</p></div>`).join("")}</div>
+   <div class="soon">Coming soon — import your FPL team and get AI-written transfer, captain and chip advice.</div>`;
+}
+
+/* ------------------------- value (list first, chart optional) ------------------------- */
+const VAL={data:null,pos:"ALL",mode:"list",sortKey:"ppm",dir:-1,diffOnly:false,byId:{}};
+async function loadValue(){ctl.innerHTML="";view.innerHTML=`<div class="loading">Loading…</div>`;const d=await g("/api/predictions?limit=700");VAL.data=(d.players||[]).filter(p=>+p.pred_points>0).map(p=>Object.assign({},p,{ppm:(+p.pred_points)/(+p.price||1)}));renderValue();}
 window.valPos=(p)=>{VAL.pos=p;renderValue();};
-function renderValue(){
-  let P=VAL.data||[]; if(VAL.pos!=="ALL")P=P.filter(p=>p.position===VAL.pos);
-  const posBtns=["ALL","GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===VAL.pos?"active":""}" onclick="valPos('${p}')">${p==="ALL"?"All":p}</button>`).join(" ");
-  const bar=`<div class="fcbar"><div class="posfilter row">${posBtns}</div><span class="muted" style="font-size:12px;margin-left:auto">Projected points vs price · top-left = best value · ringed = differentials (&lt;10% owned)</span></div>`;
-  if(!P.length){view.innerHTML=bar+`<div class="card muted">No data.</div>`;return;}
-  const W=820,H=460,mL=48,mR=20,mT=16,mB=44;
+window.valMode=(m)=>{VAL.mode=m;renderValue();};
+window.valDiff=(el)=>{VAL.diffOnly=el.checked;renderValue();};
+window.valSort=(k)=>{if(VAL.sortKey===k)VAL.dir*=-1;else{VAL.sortKey=k;VAL.dir=(k==="web_name"?1:-1);}renderValue();};
+function valPool(){let P=(VAL.data||[]).slice();if(VAL.pos!=="ALL")P=P.filter(p=>p.position===VAL.pos);if(VAL.diffOnly)P=P.filter(p=>+p.owned_pct<10);return P;}
+const VALCOLS=[["price","£",1],["pred_points","Proj",2],["ppm","Pts / £m",2],["owned_pct","Own %",1]];
+function valListHTML(P){
+  const arr=P.slice().sort((a,b)=>{const x=a[VAL.sortKey],y=b[VAL.sortKey];return (x<y?-1:x>y?1:0)*VAL.dir;}).slice(0,60);
+  if(!arr.length)return `<div class="card muted">No players match.</div>`;
+  const ar=k=>VAL.sortKey===k?(VAL.dir<0?" ↓":" ↑"):"";
+  const head=`<tr><th class="pl" onclick="valSort('web_name')">Player${ar('web_name')}</th>`+VALCOLS.map(c=>`<th onclick="valSort('${c[0]}')">${c[1]}${ar(c[0])}</th>`).join("")+`</tr>`;
+  const body=arr.map((p,i)=>{const diff=+p.owned_pct<10;return `<tr><td class="pl"><span class="pcell"><span class="rk">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}${diff?' <span style="color:var(--acc);font-size:10px" title="Differential">◆</span>':''}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td><td>£${p.price}m</td><td class="tot">${num(p.pred_points)}</td><td>${num(p.ppm)}</td><td>${(+p.owned_pct).toFixed(1)}</td></tr>`;}).join("");
+  return `<div class="fcwrap"><table class="fc"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
+function ensureTip(){let t=document.getElementById("vtip");if(!t){t=document.createElement("div");t.id="vtip";t.style.cssText="position:fixed;z-index:9999;pointer-events:none;background:var(--soft);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:12px;display:none;box-shadow:0 6px 18px rgba(0,0,0,.35);max-width:230px";document.body.appendChild(t);}return t;}
+window.vtip=(e,id)=>{const p=VAL.byId[id];if(!p)return;const t=ensureTip();t.innerHTML=`<b>${esc(p.web_name)}</b> · ${esc(p.position)} ${esc(p.team_name)}<br>£${p.price}m · ${num(p.pred_points)} proj · ${(+p.owned_pct).toFixed(1)}% own · ${num(p.ppm)}/£m`;t.style.display="block";t.style.left=Math.min(e.clientX+14,window.innerWidth-215)+"px";t.style.top=(e.clientY+14)+"px";};
+window.vtipHide=()=>{const t=document.getElementById("vtip");if(t)t.style.display="none";};
+function valChartHTML(P){
+  VAL.byId={};P.forEach(p=>VAL.byId[p.player_id]=p);
+  if(!P.length)return `<div class="card muted">No players match.</div>`;
+  const W=820,H=440,mL=48,mR=20,mT=16,mB=44;
   const maxY=Math.max(6,Math.ceil(Math.max.apply(null,P.map(p=>+p.pred_points))));
   const x0=3.5,x1=Math.max(15,Math.ceil(Math.max.apply(null,P.map(p=>+p.price))))+0.5;
-  const X=v=>mL+(v-x0)/(x1-x0)*(W-mL-mR);
-  const Y=v=>H-mB-v/maxY*(H-mT-mB);
+  const X=v=>mL+(v-x0)/(x1-x0)*(W-mL-mR), Y=v=>H-mB-v/maxY*(H-mT-mB);
   let grid="";
   for(let gx=4;gx<=x1;gx+=2)grid+=`<line x1="${X(gx)}" y1="${mT}" x2="${X(gx)}" y2="${H-mB}" stroke="var(--line)"/><text x="${X(gx)}" y="${H-mB+18}" fill="var(--mut)" font-size="11" text-anchor="middle">£${gx}</text>`;
   for(let gy=0;gy<=maxY;gy+=2)grid+=`<line x1="${mL}" y1="${Y(gy)}" x2="${W-mR}" y2="${Y(gy)}" stroke="var(--line)"/><text x="${mL-8}" y="${Y(gy)+4}" fill="var(--mut)" font-size="11" text-anchor="end">${gy}</text>`;
-  const dots=P.map(p=>{const own=+p.owned_pct;const diff=own<10;const r=diff?7:5;const fill=diff?'var(--acc)':'color-mix(in srgb,var(--mut) 55%,transparent)';const ring=diff?`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r+3}" fill="none" stroke="var(--acc)" stroke-width="1.3" opacity="0.5"/>`:'';const lbl=(+p.pred_points>=maxY*0.62)?`<text x="${X(+p.price)+r+3}" y="${Y(+p.pred_points)+4}" fill="var(--txt)" font-size="10.5" font-weight="600">${esc(p.web_name)}</text>`:'';return ring+`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r}" fill="${fill}"><title>${esc(p.web_name)} — £${p.price}m · ${num(p.pred_points)} pts · ${p.owned_pct}% owned</title></circle>`+lbl;}).join("");
-  view.innerHTML=bar+`<div class="scwrap"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Value scatter of projected points versus price">${grid}<text x="${W/2}" y="${H-6}" fill="var(--mut)" font-size="12" text-anchor="middle">Price (£m)</text><text transform="translate(14,${H/2}) rotate(-90)" fill="var(--mut)" font-size="12" text-anchor="middle">Projected points</text>${dots}</svg>
-   <div class="sclegend"><span class="lg"><span class="scdot" style="background:var(--acc)"></span>Differential (&lt;10% owned)</span><span class="lg"><span class="scdot" style="background:var(--mut)"></span>Template pick</span></div></div>`;
+  const top=P.slice().sort((a,b)=>b.pred_points-a.pred_points).slice(0,7).reduce((s,p)=>(s[p.player_id]=1,s),{});
+  const dots=P.map(p=>{const diff=+p.owned_pct<10;const r=diff?5:3.5;const fill=diff?'var(--acc)':'color-mix(in srgb,var(--mut) 50%,transparent)';const ring=diff?`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r+2.5}" fill="none" stroke="var(--acc)" stroke-width="1.1" opacity="0.5"/>`:'';const lbl=top[p.player_id]?`<text x="${X(+p.price)+r+3}" y="${Y(+p.pred_points)+3.5}" fill="var(--txt)" font-size="10" font-weight="600">${esc(p.web_name)}</text>`:'';return ring+`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r}" fill="${fill}" style="cursor:pointer" onmouseenter="vtip(event,'${p.player_id}')" onmousemove="vtip(event,'${p.player_id}')" onmouseleave="vtipHide()"/>`+lbl;}).join("");
+  return `<div class="scwrap"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Value scatter">${grid}<text x="${W/2}" y="${H-6}" fill="var(--mut)" font-size="12" text-anchor="middle">Price (£m)</text><text transform="translate(14,${H/2}) rotate(-90)" fill="var(--mut)" font-size="12" text-anchor="middle">Projected points</text>${dots}</svg>
+   <div class="sclegend"><span class="lg"><span class="scdot" style="background:var(--acc)"></span>Differential (&lt;10% owned)</span><span class="lg"><span class="scdot" style="background:var(--mut)"></span>Template</span><span class="lg">hover a dot for the player</span></div></div>`;
+}
+function renderValue(){
+  vtipHide();
+  const P=valPool();
+  const posBtns=["ALL","GK","DEF","MID","FWD"].map(p=>`<button class="pill ${p===VAL.pos?"active":""}" onclick="valPos('${p}')">${p==="ALL"?"All":p}</button>`).join(" ");
+  const seg=`<div class="seg2"><button class="${VAL.mode!=="chart"?"on":""}" onclick="valMode('list')">List</button><button class="${VAL.mode==="chart"?"on":""}" onclick="valMode('chart')">Chart</button></div>`;
+  const diffTgl=`<label class="muted" style="font-size:12.5px;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" ${VAL.diffOnly?"checked":""} onchange="valDiff(this)"> Differentials only</label>`;
+  const bar=`<div class="fcbar">${seg}<div class="posfilter row">${posBtns}</div>${diffTgl}<span class="muted" style="font-size:12px;margin-left:auto">Best points per £m${VAL.diffOnly?" · under 10% owned":""}</span></div>`;
+  view.innerHTML=bar+(VAL.mode==="chart"?valChartHTML(P):valListHTML(P));
 }
 boot();
 </script>
