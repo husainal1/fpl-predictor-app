@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>FPL Predictor</title>
+<title>LokiFPL — predict the chaos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2054'%3E%3Cg%20fill='none'%20stroke='%23e6be5a'%20stroke-width='4'%20stroke-linecap='round'%20stroke-linejoin='miter'%3E%3Cpolyline%20points='30,43%2024,30%2022,34%2015,17%2012,21%207,5'/%3E%3Cpolyline%20points='34,43%2040,30%2042,34%2049,17%2052,21%2057,5'/%3E%3C/g%3E%3Crect%20x='20'%20y='42'%20width='24'%20height='9'%20rx='3'%20fill='%23e6be5a'/%3E%3Cpolygon%20points='27,42.5%2032,49%2037,42.5'%20fill='%2333b06a'/%3E%3C/svg%3E"/>
 <style>
-  :root{--bg:#0f1420;--card:#182033;--line:#26304a;--txt:#e8edf7;--mut:#94a3c0;--acc:#37d67a;--acc2:#5b9dff;--gold:#ffcf5b;--pitch:#123a1e;--pitch2:#0f2f18;--thead:#141c2e;--hover:#151d2f;--active:var(--active);--soft:#111a2b;}
-  html[data-theme="light"]{--bg:#f4f6fb;--card:#ffffff;--line:#e3e8f1;--txt:#141b2c;--mut:#5c6784;--thead:#eef2f8;--hover:#f1f4fa;--active:#e7edfb;--soft:#f1f4fa;}
+  :root{--bg:#0a0f0b;--card:#111a13;--line:#243528;--txt:#edf2ea;--mut:#8ba394;--acc:#33b06a;--acc2:#4fc98a;--gold:#e6be5a;--pitch:#123a1e;--pitch2:#0f2f18;--thead:#0f1712;--hover:#12201a;--active:#15271b;--soft:#0f1712;}
+  html[data-theme="light"]{--bg:#f3f6f2;--card:#ffffff;--line:#dde7de;--txt:#12211a;--mut:#5c7266;--acc:#1f9e5e;--acc2:#1f8f56;--gold:#b8892a;--thead:#eef3ee;--hover:#f0f5f0;--active:#e4f0e7;--soft:#eef3ee;}
   html,body{transition:background .2s,color .2s}
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
@@ -116,27 +117,56 @@
   .seg2{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
   .seg2 button{background:transparent;color:var(--mut);border:0;padding:6px 13px;cursor:pointer;font-size:13px;font-weight:600}
   .seg2 button.on{background:var(--acc);color:#08160c}
+  .sitefoot{max-width:960px;margin:34px auto 0;padding:16px 18px 26px;border-top:1px solid var(--line);color:var(--mut);font-size:11.5px;line-height:1.5;text-align:center}
+  /* ---- brand ---- */
+  .brand{display:flex;align-items:center;gap:11px}
+  .logo{width:34px;height:29px;flex:none}
+  .wm{font-size:23px;font-weight:800;letter-spacing:.3px}
+  .wm span{color:var(--gold)}
+  .themebtn .tglic{width:14px;height:14px;vertical-align:-2px;margin-right:2px}
+  /* ---- per-tab intro ---- */
+  .tabhead{display:flex;align-items:center;gap:11px;margin:14px 0 4px}
+  .tabhead .glyph{width:26px;height:26px;color:var(--gold);flex:none}
+  .tabhead .thname{font-size:17px;font-weight:700;letter-spacing:.2px}
+  .tabhead .thsub{font-size:12.5px;color:var(--mut);margin-top:1px;line-height:1.4}
+  .glyph{display:inline-block}
+  .feat .glyph{width:26px;height:26px;color:var(--gold);margin-bottom:10px}
 </style>
 </head>
 <body>
 <header>
-  <h1>⚽ FPL Predictor</h1>
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 64 54" aria-label="LokiFPL">
+      <g fill="none" stroke="var(--gold)" stroke-width="4" stroke-linecap="round" stroke-linejoin="miter">
+        <polyline points="30,43 24,30 22,34 15,17 12,21 7,5"/>
+        <polyline points="34,43 40,30 42,34 49,17 52,21 57,5"/>
+      </g>
+      <circle cx="7" cy="5" r="2.4" fill="var(--gold)"/><circle cx="57" cy="5" r="2.4" fill="var(--gold)"/>
+      <rect x="20" y="42" width="24" height="9" rx="3" fill="var(--gold)"/>
+      <polygon points="27,42.5 32,49 37,42.5" fill="var(--acc)"/>
+    </svg>
+    <div class="wm">Loki<span>FPL</span></div>
+  </div>
   <div class="sub" id="sub">Loading model…</div>
-  <button id="themeToggle" class="themebtn" style="position:absolute;top:22px;right:18px" onclick="toggleTheme()">🌙 Dark</button>
+  <button id="themeToggle" class="themebtn" style="position:absolute;top:22px;right:18px" onclick="toggleTheme()">Dark</button>
 </header>
 <main>
   <nav>
     <button data-tab="home" class="active">Home</button>
-    <button data-tab="picks">Top picks</button>
-    <button data-tab="squad">Best XI</button>
-    <button data-tab="builder">Squad builder</button>
-    <button data-tab="forecast">Points forecast</button>
-    <button data-tab="stats">Stats</button>
-    <button data-tab="value">Value &amp; differentials</button>
+    <button data-tab="forecast">The Prime Timeline</button>
+    <button data-tab="picks">The Blueprint</button>
+    <button data-tab="builder">The Forge</button>
+    <button data-tab="value">Anomalies</button>
+    <button data-tab="stats">The Ledger</button>
+    <button data-tab="squad">Apex Projections</button>
     <span class="ctl" id="ctl"></span>
   </nav>
+  <div id="tabhead"></div>
   <div id="view"><div class="loading">Loading…</div></div>
 </main>
+<footer class="sitefoot">
+  LokiFPL is an independent data analytics platform. It is not affiliated with, endorsed by, or connected to Marvel, Disney, or the official Premier League.
+</footer>
 
 <script>
 const API = window.API_BASE || "";
@@ -150,6 +180,32 @@ const SB = { picked: {} };            // squad builder selection: id -> player
 const FC = { weeks:5, pos:"ALL", shown:25, data:null, gws:[], q:"" };  // points forecast state
 const SQUAD_LIMITS = {GK:2, DEF:5, MID:5, FWD:3};
 const BUDGET = 100.0;
+
+// Brand glyphs — simple line-art, no emoji. currentColor = gold.
+const GLYPH = {
+  forecast:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,17 6,11 9,14 13,6 16,9 22,2"/></svg>`,
+  picks:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>`,
+  builder:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3l-5.5 3 2 4L8 9v12h8V9l2.5 1 2-4L15 3l-3 2.4z"/></svg>`,
+  value:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,2.5 21.5,12 12,21.5 2.5,12"/><polygon points="12,8 16,12 12,16 8,12" fill="currentColor" stroke="none"/></svg>`,
+  stats:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="13"/><line x1="10" y1="21" x2="10" y2="6"/><line x1="16" y1="21" x2="16" y2="15"/><line x1="21" y1="21" x2="21" y2="10"/></svg>`,
+  squad:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18"/><path d="M3 19l2-11 5 6 2-9 2 9 5-6 2 11z"/></svg>`
+};
+const TABMETA = {
+  forecast:["The Prime Timeline","Every player's points, projected gameweek by gameweek across the weeks ahead."],
+  picks:["The Blueprint","This week's highest projected scorers — the core of any team, with an AI take on each."],
+  builder:["The Forge","Build and price a full 15-man squad by hand, within budget and the FPL squad rules."],
+  value:["Anomalies","The best points per £m and the low-owned differentials most managers are missing."],
+  stats:["The Ledger","Real season stats so far — goals, assists, xG, xGI, minutes, bonus and more."],
+  squad:["Apex Projections","The single best XI and captain your £100m can buy for this gameweek."]
+};
+function setTabHead(tab){
+  const el=document.getElementById("tabhead"); if(!el) return;
+  const m=TABMETA[tab];
+  if(!m){ el.innerHTML=""; el.style.display="none"; return; }
+  el.style.display="flex";
+  el.className="tabhead";
+  el.innerHTML=`${GLYPH[tab]||""}<div><div class="thname">${m[0]}</div><div class="thsub">${m[1]}</div></div>`;
+}
 
 const g = (u)=>fetch(API+u,{credentials:"include"}).then(r=>r.json());
 const post = (u,b)=>fetch(API+u,{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify(b||{})}).then(r=>r.json());
@@ -234,7 +290,7 @@ async function loadAll(){
 }
 
 async function render(){
-  ctl.innerHTML=""; view.innerHTML=`<div class="loading">Loading…</div>`;
+  ctl.innerHTML=""; setTabHead(TAB); view.innerHTML=`<div class="loading">Loading…</div>`;
   try{
     if(TAB==="home"){
       renderHome();
@@ -413,7 +469,9 @@ function renderForecast(){
 }
 
 /* ------------------------- theme (light / dark) ------------------------- */
-function applyTheme(t){document.documentElement.dataset.theme=t;const b=document.getElementById("themeToggle");if(b)b.textContent=t==="light"?"☀ Light":"🌙 Dark";}
+const _SUN=`<svg class="tglic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></svg>`;
+const _MOON=`<svg class="tglic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 12.8A8 8 0 1 1 11.2 3a6 6 0 0 0 9.8 9.8z"/></svg>`;
+function applyTheme(t){document.documentElement.dataset.theme=t;const b=document.getElementById("themeToggle");if(b)b.innerHTML=t==="light"?_SUN+"Light":_MOON+"Dark";}
 window.toggleTheme=()=>{const nx=document.documentElement.dataset.theme==="light"?"dark":"light";applyTheme(nx);try{localStorage.setItem("fpl_theme",nx)}catch(e){}};
 (function(){let t;try{t=localStorage.getItem("fpl_theme")}catch(e){}applyTheme(t==="light"?"light":"dark");})();
 
@@ -448,24 +506,24 @@ function renderStats(){
 /* ------------------------- landing / home ------------------------- */
 window.goTab=(t)=>{TAB=t;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));render();};
 const FEATS=[
-  ["🎯","Top picks","picks","The highest projected scorers for the next gameweek, each with an AI take on why."],
-  ["🏆","Best XI","squad","The optimal squad and starting XI your budget can buy — captain picked for you."],
-  ["🧩","Squad builder","builder","Build and cost a 15-man squad by hand. Soon: import your real team and tinker."],
-  ["📅","Points forecast","forecast","Per-gameweek projections for every player across the next five weeks, sortable."],
-  ["📊","Stats","stats","Real accumulated season numbers — goals, xG, xGI, minutes, bonus and more."],
-  ["💎","Value","value","The best points per £m and the low-owned gems worth a differential punt."]
+  ["forecast","The Prime Timeline","Every player's points, projected gameweek by gameweek."],
+  ["picks","The Blueprint","This week's highest projected scorers, each with an AI take."],
+  ["builder","The Forge","Build and price a full 15-man squad by hand."],
+  ["value","Anomalies","The best points per £m and the low-owned differentials."],
+  ["stats","The Ledger","Real season stats — goals, xG, xGI, minutes and more."],
+  ["squad","Apex Projections","The best XI and captain your budget can buy."]
 ];
 function renderHome(){
   const h=HEALTH||{},m=h.metrics||{};const gw=h.next_gw||"—";
   view.innerHTML=`
    <section class="hero">
-     <h2>Smarter FPL, powered by a model that learns.</h2>
-     <p class="lead">Machine-learning point projections for every Premier League player, so you can pick, build and optimise your Fantasy team with real numbers instead of hunches.</p>
+     <h2>The game is chaotic. Embrace the mischief.</h2>
+     <p class="lead">LokiFPL turns three seasons of Premier League data into point projections for every player — so you pick, build and captain on numbers, not hunches, and exploit the chaos everyone else is guessing at.</p>
      <p class="herometa">Predicting <b>GW${gw}</b>${m.model_mae?` · beats a form-average baseline (${m.model_mae.toFixed(2)} vs ${(m.baseline_mae||0).toFixed(2)} MAE)`:""} · ${h.season_started?"live season data":"pre-season form"}</p>
-     <div class="herocta"><button class="cta" onclick="goTab('picks')">See this week's top picks →</button><button class="cta ghost" onclick="goTab('builder')">Build your team →</button></div>
+     <div class="herocta"><button class="cta" onclick="goTab('forecast')">Open the Prime Timeline →</button><button class="cta ghost" onclick="goTab('builder')">Build in the Forge →</button></div>
    </section>
-   <div class="feats">${FEATS.map(f=>`<div class="feat" onclick="goTab('${f[2]}')"><div class="fic">${f[0]}</div><h3>${esc(f[1])}</h3><p>${esc(f[3])}</p></div>`).join("")}</div>
-   <div class="soon">Coming soon — import your FPL team and get AI-written transfer, captain and chip advice.</div>`;
+   <div class="feats">${FEATS.map(f=>`<div class="feat" onclick="goTab('${f[0]}')">${GLYPH[f[0]]||""}<h3>${esc(f[1])}</h3><p>${esc(f[2])}</p></div>`).join("")}</div>
+   <div class="soon">Coming soon — import your real FPL team into The Forge and get AI-written transfer, captain and chip calls.</div>`;
 }
 
 /* ------------------------- value (list first, chart optional) ------------------------- */
