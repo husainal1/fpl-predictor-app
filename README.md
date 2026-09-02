@@ -4,7 +4,7 @@
 will score in the next gameweek, builds the best squad you can afford, plans ahead over upcoming
 fixtures, and explains every recommendation in plain English.
 
-### ▶ Live demo: **https://fpl-predictor-app.onrender.com**
+### ▶ Live demo: **https://lokifpl.com**
 Built by [Husain Ali](https://github.com/husainal1). (Free hosting sleeps when idle, so the first
 load after a quiet spell can take up to a minute to wake, then it's fast.)
 
