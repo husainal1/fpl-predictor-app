@@ -96,6 +96,25 @@ def _add_crest(players):
     return players
 
 
+# Memoize expensive derived results (squad optimizer, multi-GW forecast/horizon)
+# so repeated tab switches don't recompute them. Auto-invalidates when the engine
+# state rebuilds (keyed on built_at) or the params change.
+_DCACHE = {}
+
+
+def _cached(name, params):
+    st = engine.get_state()
+    ent = _DCACHE.get(name)
+    if ent and ent[0] == (st.built_at, params):
+        return st, ent[1]
+    return st, None
+
+
+def _store(name, st, params, data):
+    _DCACHE[name] = ((st.built_at, params), data)
+    return data
+
+
 # --------------------------------------------------------------------------- #
 # endpoints
 # --------------------------------------------------------------------------- #
@@ -121,38 +140,47 @@ def predictions(limit: int = 50, position: str = None):
 
 @app.get("/api/squad")
 def squad(budget: float = engine.SQUAD_BUDGET):
-    st = engine.get_state()
+    st, cached = _cached("squad", round(budget, 1))
+    if cached is not None:
+        return cached
     sq = st.squad(budget=budget)
     cap = sq[sq["is_cap"] == 1]["web_name"]
-    return {
+    result = {
         "next_gw": st.next_gw,
         "cost": round(float(sq["price"].sum()), 1),
         "captain": (cap.iloc[0] if len(cap) else None),
         "predicted_xi_points": round(float(sq[sq["is_start"] == 1]["pred_points"].sum()), 2),
         "squad": _add_crest(_records(sq, PRED_COLS + ["is_start", "is_cap"])),
     }
+    return _store("squad", st, round(budget, 1), result)
 
 
 @app.get("/api/horizon")
 def horizon(n: int = 5, limit: int = 30):
-    st = engine.get_state()
+    st, cached = _cached("horizon", (n, limit))
+    if cached is not None:
+        return cached
     run = st.horizon(n=n)
-    return {"from_gw": st.next_gw, "weeks": n,
-            "players": _add_crest(_records(run.head(limit),
+    result = {"from_gw": st.next_gw, "weeks": n,
+              "players": _add_crest(_records(run.head(limit),
                                 ["player_id", "web_name", "team_name", "position",
                                  "price", "games", "horizon_points", "per_game"]))}
+    return _store("horizon", st, (n, limit), result)
 
 
 @app.get("/api/forecast")
 def forecast(weeks: int = 5):
-    st = engine.get_state()
     weeks = max(1, min(6, weeks))
+    st, cached = _cached("forecast", weeks)
+    if cached is not None:
+        return cached
     gws, players = st.forecast(n=weeks)
     players = _add_crest(players)
     fn = dict(zip(st.players_now["player_id"], st.players_now["full_name"]))
     for p in players:
         p["full_name"] = fn.get(p.get("player_id"), p.get("web_name"))
-    return {"from_gw": st.next_gw, "gws": gws, "players": players}
+    result = {"from_gw": st.next_gw, "gws": gws, "players": players}
+    return _store("forecast", st, weeks, result)
 
 
 @app.get("/api/team/{entry_id}")
