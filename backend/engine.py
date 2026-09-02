@@ -357,7 +357,9 @@ def _pick_xi(df, coeff="horizon_points"):
     starters = {int(d.loc[i, "player_id"]) for i in P if (value(start[i]) or 0) > 0.5}
     xi = d[d["player_id"].astype(int).isin(starters)]
     hz_tot = float(xi[coeff].sum())
-    cap = xi.sort_values("pred_points", ascending=False)
+    # Captain by next-GW projection where available, else by the same coefficient.
+    capcol = "pred_points" if "pred_points" in xi.columns else coeff
+    cap = xi.sort_values(capcol, ascending=False)
     cap_id = int(cap.iloc[0]["player_id"]) if len(cap) else None
     return starters, round(hz_tot, 2), cap_id
 
