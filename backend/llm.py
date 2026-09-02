@@ -77,6 +77,65 @@ def _fallback(player: dict, variant: str) -> str:
     return one + tail
 
 
+def _reckoning_facts(r: dict) -> str:
+    cap = r.get("captain") or {}
+    lines = [
+        f"Upcoming gameweek: GW{r.get('next_gw')}",
+        f"Free transfers available: {r.get('free_transfers')}",
+        f"Recommended transfers: {r.get('transfers_made')} "
+        f"({r.get('paid_transfers')} paid, costing {r.get('hit_cost')} points)",
+        f"Recommended captain: {cap.get('web_name', '?')} "
+        f"(projected {cap.get('pred_points', '?')} next gameweek)",
+    ]
+    for m in r.get("moves", []):
+        lines.append(f"Transfer out {m['out']['web_name']} for {m['in']['web_name']} "
+                     f"(+{m['gain']} projected over the horizon)")
+    lines.append(f"Net projected gain after any hits: {r.get('net_gain')} points "
+                 f"over the next {r.get('horizon_weeks')} gameweeks")
+    for c in r.get("chips", []):
+        lines.append(f"Chip {c['chip']}: {c['note']}")
+    return "\n".join(lines)
+
+
+def _reckoning_fallback(r: dict) -> str:
+    cap = r.get("captain") or {}
+    n = r.get("transfers_made", 0)
+    if n == 0:
+        move = "Hold your team — no transfer beats it this week."
+    else:
+        parts = [f"{m['out']['web_name']} out for {m['in']['web_name']}" for m in r.get("moves", [])]
+        hit = r.get("hit_cost", 0)
+        tail = f" for a net {r.get('net_gain')} points after the {hit}-point hit." if hit else \
+               f", projected to add {r.get('net_gain')} points."
+        move = f"Make {n} move{'s' if n > 1 else ''}: " + ", ".join(parts) + tail
+    capname = cap.get("web_name", "your best starter")
+    return f"Captain {capname}. {move}"
+
+
+def explain_reckoning(rec: dict) -> dict:
+    """A short, brand-voice write-up of the solver's plan. Falls back with no API key."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        return {"text": _reckoning_fallback(rec), "source": "fallback"}
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        prompt = (
+            "You are LokiFPL's analyst — sharp, a little mischievous, but genuinely useful. "
+            "Using ONLY the facts below, write a 2 to 4 sentence verdict on this manager's "
+            "gameweek: who to captain, the transfer plan and whether any hit is worth it, and a "
+            "word on chips if relevant. Be decisive and consistent with the numbers. Do not invent "
+            "stats. Do not use em dashes.\n\n" + _reckoning_facts(rec)
+        )
+        msg = client.messages.create(model=MODEL, max_tokens=220,
+                                     messages=[{"role": "user", "content": prompt}])
+        text = "".join(getattr(b, "text", "") for b in msg.content).strip()
+        return {"text": text or _reckoning_fallback(rec), "source": "claude"}
+    except Exception as e:  # noqa: BLE001
+        print("LLM_ERROR", type(e).__name__, str(e)[:300], flush=True)
+        return {"text": _reckoning_fallback(rec), "source": "fallback"}
+
+
 def explain(player: dict, variant: str = "concise") -> dict:
     """Return {'text': str, 'variant': str, 'source': 'claude'|'fallback'}."""
     key = os.environ.get("ANTHROPIC_API_KEY")

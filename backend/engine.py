@@ -256,6 +256,12 @@ class EngineState:
         row = self.predictions[self.predictions["player_id"] == pid]
         return None if row.empty else row.iloc[0].to_dict()
 
+    def import_team(self, entry_id, horizon_n=5):
+        return import_team(self, entry_id, horizon_n)
+
+    def solve(self, entry_id, ft=1, hit_budget=0, horizon_n=5):
+        return solve_team(self, entry_id, ft=ft, hit_budget=hit_budget, horizon_n=horizon_n)
+
 
 # --------------------------------------------------------------------------- #
 # Optimizer (PuLP)
@@ -301,6 +307,236 @@ def optimize_squad(pred_df, budget=SQUAD_BUDGET, max_per_club=3, squad=(2, 5, 5,
     d["is_cap"] = [int(value(cap[i]) or 0) for i in P]
     sq = d[d["in_squad"] == 1].sort_values(["is_start", "position"], ascending=[False, True])
     return sq
+
+
+# --------------------------------------------------------------------------- #
+# Team import + solver ("The Reckoning")
+# --------------------------------------------------------------------------- #
+XI_MIN = {"GK": 1, "DEF": 3, "MID": 2, "FWD": 1}
+XI_MAX = {"GK": 1, "DEF": 5, "MID": 5, "FWD": 3}
+SQUAD_NEED = {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3}
+_CHIP_LABELS = [("wildcard", "Wildcard", 2), ("3xc", "Triple Captain", 1),
+                ("bboost", "Bench Boost", 1), ("freehit", "Free Hit", 1)]
+
+
+def _projection_pool(state, horizon_n=5):
+    """Candidate pool: every playable player with horizon points + next-GW points."""
+    hz = state.horizon(n=horizon_n)
+    preds = state.predictions.drop_duplicates("player_id").set_index("player_id")
+    if hz is None or hz.empty:
+        hz = state.predictions.drop_duplicates("player_id").copy()
+        hz["horizon_points"] = hz["pred_points"]
+        hz["games"] = 1
+        hz["per_game"] = hz["pred_points"]
+    hz = hz.copy()
+    hz["pred_points"] = hz["player_id"].map(preds["pred_points"]).fillna(0.0)
+    hz["owned_pct"] = hz["player_id"].map(preds["owned_pct"]).fillna(0.0)
+    return hz
+
+
+def _pick_xi(df):
+    """Best starting 11 from a fixed squad (maximise horizon points, legal formation)."""
+    from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpBinary, PULP_CBC_CMD
+    d = df.reset_index(drop=True)
+    P = range(len(d))
+    start = LpVariable.dicts("x", P, cat=LpBinary)
+    prob = LpProblem("xi", LpMaximize)
+    prob += lpSum(start[i] * float(d.loc[i, "horizon_points"]) for i in P)
+    prob += lpSum(start[i] for i in P) == 11
+    for pos in VALID_POS:
+        idx = [i for i in P if d.loc[i, "position"] == pos]
+        prob += lpSum(start[i] for i in idx) >= XI_MIN[pos]
+        prob += lpSum(start[i] for i in idx) <= XI_MAX[pos]
+    prob.solve(PULP_CBC_CMD(msg=0))
+    starters = {int(d.loc[i, "player_id"]) for i in P if (value(start[i]) or 0) > 0.5}
+    xi = d[d["player_id"].astype(int).isin(starters)]
+    hz_tot = float(xi["horizon_points"].sum())
+    cap = xi.sort_values("pred_points", ascending=False)
+    cap_id = int(cap.iloc[0]["player_id"]) if len(cap) else None
+    return starters, round(hz_tot, 2), cap_id
+
+
+def import_team(state, entry_id, horizon_n=5, session_get=get_json):
+    """Pull a manager's real squad, bank, value and chips from the FPL API."""
+    entry_id = int(entry_id)
+    info = session_get(f"{BASE}/entry/{entry_id}/")
+    pick_gw = info.get("current_event")
+    if not pick_gw:
+        raise ValueError("This team has no squad yet — import after your first gameweek deadline.")
+    picks_raw = session_get(f"{BASE}/entry/{entry_id}/event/{int(pick_gw)}/picks/")
+    eh = picks_raw.get("entry_history", {}) or {}
+    bank = float(eh.get("bank", 0)) / 10.0
+    squad_value = float(eh.get("value", 0)) / 10.0     # FPL: squad selling value, excl. bank
+    budget = round(squad_value + bank, 1)              # total spendable
+    try:
+        used = [c.get("name") for c in session_get(f"{BASE}/entry/{entry_id}/history/").get("chips", [])]
+    except Exception:  # noqa: BLE001
+        used = []
+    pool = _projection_pool(state, horizon_n).drop_duplicates("player_id").set_index("player_id")
+    pnow = state.players_now.drop_duplicates("player_id").set_index("player_id")
+    squad = []
+    for pk in picks_raw.get("picks", []):
+        e = int(pk["element"])
+        base = pool.loc[e] if e in pool.index else None
+        nm = pnow.loc[e, "web_name"] if e in pnow.index else (base["web_name"] if base is not None else f"#{e}")
+        tn = pnow.loc[e, "team_name"] if e in pnow.index else (base["team_name"] if base is not None else "")
+        ps = pnow.loc[e, "position"] if e in pnow.index else (base["position"] if base is not None else "")
+        pr = float(pnow.loc[e, "price"]) if e in pnow.index else (float(base["price"]) if base is not None else 0.0)
+        squad.append({
+            "player_id": e, "web_name": nm, "team_name": tn, "position": ps,
+            "price": round(pr, 1),
+            "pred_points": round(float(base["pred_points"]) if base is not None else 0.0, 2),
+            "horizon_points": round(float(base["horizon_points"]) if base is not None else 0.0, 2),
+            "is_captain": bool(pk.get("is_captain")), "is_vice": bool(pk.get("is_vice_captain")),
+            "slot": int(pk.get("position", 0)),
+            "playable": base is not None,
+        })
+    avail = [label for key, label, allowed in _CHIP_LABELS if used.count(key) < allowed]
+    return {
+        "entry_id": entry_id,
+        "manager": (str(info.get("player_first_name", "")).strip() + " "
+                    + str(info.get("player_last_name", "")).strip()).strip(),
+        "team_name_entry": info.get("name", ""),
+        "overall_points": info.get("summary_overall_points"),
+        "overall_rank": info.get("summary_overall_rank"),
+        "pick_gw": int(pick_gw), "next_gw": state.next_gw,
+        "bank": round(bank, 1), "squad_value": round(squad_value, 1), "budget": budget,
+        "chips_used": used, "chips_available": avail,
+        "squad": squad,
+    }
+
+
+def _chip_advice(state, avail, horizon_n=5):
+    fx = state.fixtures
+    gws = list(range(state.next_gw, min(state.next_gw + horizon_n, 39)))
+    dgw = []
+    try:
+        for g in gws:
+            sub = fx[fx["event"] == g]
+            counts = pd.concat([sub["team_h"], sub["team_a"]]).value_counts()
+            if (counts >= 2).any():
+                dgw.append(g)
+    except Exception:  # noqa: BLE001
+        pass
+    out = []
+    for label in avail:
+        if label in ("Bench Boost", "Triple Captain"):
+            out.append({"chip": label,
+                        "note": (f"Hold for GW{dgw[0]} — it looks like a double gameweek."
+                                 if dgw else "Hold — no double gameweeks in view yet.")})
+        elif label == "Free Hit":
+            out.append({"chip": label, "note": "Hold for a blank/double gameweek or an injury crisis."})
+        elif label == "Wildcard":
+            out.append({"chip": label, "note": "Hold unless your team needs 3+ transfers at once."})
+    return out
+
+
+def solve_team(state, entry_id, ft=1, hit_budget=0, horizon_n=5, pool_cap=280):
+    """Full optimiser: maximise the resulting squad's horizon points minus hit cost."""
+    from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpBinary, PULP_CBC_CMD
+    imp = import_team(state, entry_id, horizon_n)
+    current_ids = {int(p["player_id"]) for p in imp["squad"]}
+    budget = float(imp["budget"])
+    ft = max(0, min(5, int(ft)))
+    max_paid = max(0, int(hit_budget) // 4)
+
+    pool = _projection_pool(state, horizon_n)
+    have = set(pool["player_id"].astype(int))
+    missing = [p for p in imp["squad"] if int(p["player_id"]) not in have]
+    if missing:
+        add = pd.DataFrame([{"player_id": m["player_id"], "web_name": m["web_name"],
+                             "team_name": m["team_name"], "position": m["position"],
+                             "price": m["price"], "games": 0, "per_game": 0.0,
+                             "horizon_points": m["horizon_points"], "pred_points": m["pred_points"],
+                             "owned_pct": 0.0} for m in missing])
+        pool = pd.concat([pool, add], ignore_index=True)
+    pool["player_id"] = pool["player_id"].astype(int)
+    cur = pool[pool["player_id"].isin(current_ids)]
+    rest = pool[~pool["player_id"].isin(current_ids)].sort_values("horizon_points", ascending=False).head(pool_cap)
+    d = pd.concat([cur, rest], ignore_index=True).drop_duplicates("player_id").reset_index(drop=True)
+    P = range(len(d))
+    is_cur = [int(d.loc[i, "player_id"]) in current_ids for i in P]
+
+    pick = LpVariable.dicts("pk", P, cat=LpBinary)
+    start = LpVariable.dicts("st", P, cat=LpBinary)
+    paid = LpVariable("paid", lowBound=0, cat="Integer")
+    prob = LpProblem("reckoning", LpMaximize)
+    prob += lpSum(start[i] * float(d.loc[i, "horizon_points"]) for i in P) - 4 * paid
+    prob += lpSum(pick[i] for i in P) == 15
+    prob += lpSum(pick[i] * float(d.loc[i, "price"]) for i in P) <= budget + 1e-6
+    for pos in VALID_POS:
+        idx = [i for i in P if d.loc[i, "position"] == pos]
+        prob += lpSum(pick[i] for i in idx) == SQUAD_NEED[pos]
+        prob += lpSum(start[i] for i in idx) >= XI_MIN[pos]
+        prob += lpSum(start[i] for i in idx) <= XI_MAX[pos]
+    for club in d["team_name"].dropna().unique():
+        idx = [i for i in P if d.loc[i, "team_name"] == club]
+        prob += lpSum(pick[i] for i in idx) <= 3
+    for i in P:
+        prob += start[i] <= pick[i]
+    prob += lpSum(start[i] for i in P) == 11
+    transfers = lpSum(pick[i] for i in P if not is_cur[i])
+    prob += paid >= transfers - ft
+    prob += paid <= max_paid
+    prob.solve(PULP_CBC_CMD(msg=0))
+
+    d["in_squad"] = [int(value(pick[i]) or 0) for i in P]
+    d["is_start"] = [int(value(start[i]) or 0) for i in P]
+    paid_n = int(round(value(paid) or 0))
+    final = d[d["in_squad"] == 1].copy()
+    final_ids = set(final["player_id"].astype(int))
+
+    # captain / vice from the recommended XI, by next-GW projection
+    xi = final[final["is_start"] == 1].sort_values("pred_points", ascending=False)
+    captain = xi.iloc[0] if len(xi) else None
+    vice = xi.iloc[1] if len(xi) > 1 else None
+
+    # before vs after (horizon points of the best XI)
+    cur_df = d[d["player_id"].isin(current_ids)].copy()
+    _, before_hz, before_cap = _pick_xi(cur_df)
+    after_hz = round(float(final[final["is_start"] == 1]["horizon_points"].sum()), 2)
+    hit_cost = 4 * paid_n
+    net_gain = round(after_hz - before_hz - hit_cost, 2)
+
+    # transfers (pair sells and buys by position for display)
+    def _fmt(row):
+        return {"player_id": int(row["player_id"]), "web_name": row["web_name"],
+                "team_name": row["team_name"], "position": row["position"],
+                "price": round(float(row["price"]), 1),
+                "pred_points": round(float(row["pred_points"]), 2),
+                "horizon_points": round(float(row["horizon_points"]), 2)}
+    outs = cur_df[~cur_df["player_id"].isin(final_ids)].sort_values(["position", "horizon_points"])
+    ins = final[~final["player_id"].isin(current_ids)].sort_values(["position", "horizon_points"], ascending=[True, False])
+    moves = []
+    o_list, i_list = [_fmt(r) for _, r in outs.iterrows()], [_fmt(r) for _, r in ins.iterrows()]
+    for k in range(min(len(o_list), len(i_list))):
+        o, i = o_list[k], i_list[k]
+        moves.append({"out": o, "in": i, "gain": round(i["horizon_points"] - o["horizon_points"], 2)})
+
+    squad_out = []
+    for _, r in final.sort_values(["is_start", "position"], ascending=[False, True]).iterrows():
+        rec = _fmt(r)
+        rec["is_start"] = int(r["is_start"])
+        rec["is_new"] = int(int(r["player_id"]) not in current_ids)
+        rec["is_captain"] = bool(captain is not None and int(r["player_id"]) == int(captain["player_id"]))
+        rec["is_vice"] = bool(vice is not None and int(r["player_id"]) == int(vice["player_id"]))
+        squad_out.append(rec)
+
+    return {
+        "entry_id": imp["entry_id"], "manager": imp["manager"],
+        "team_name_entry": imp["team_name_entry"], "next_gw": imp["next_gw"],
+        "bank": imp["bank"], "squad_value": imp["squad_value"], "budget": imp["budget"],
+        "free_transfers": ft, "hit_budget": int(hit_budget),
+        "transfers_made": len(moves), "paid_transfers": paid_n, "hit_cost": hit_cost,
+        "horizon_weeks": min(horizon_n, max(1, 39 - state.next_gw)),
+        "captain": _fmt(captain) if captain is not None else None,
+        "vice": _fmt(vice) if vice is not None else None,
+        "before_horizon": before_hz, "after_horizon": after_hz, "net_gain": net_gain,
+        "moves": moves,
+        "squad": squad_out,
+        "chips": _chip_advice(state, imp["chips_available"], horizon_n),
+        "chips_available": imp["chips_available"],
+    }
 
 
 # --------------------------------------------------------------------------- #

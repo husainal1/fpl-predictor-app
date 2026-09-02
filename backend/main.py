@@ -155,6 +155,39 @@ def forecast(weeks: int = 5):
     return {"from_gw": st.next_gw, "gws": gws, "players": players}
 
 
+@app.get("/api/team/{entry_id}")
+def team(entry_id: int):
+    st = engine.get_state()
+    try:
+        data = st.import_team(entry_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(404, "Couldn't load that team ID — double-check it and try again.")
+    data["squad"] = _add_crest(data["squad"])
+    return data
+
+
+@app.get("/api/solve/{entry_id}")
+def solve(entry_id: int, ft: int = 1, hit_budget: int = 0):
+    st = engine.get_state()
+    try:
+        data = st.solve(entry_id, ft=ft, hit_budget=hit_budget)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(404, "Couldn't solve that team — double-check the ID and try again.")
+    data["squad"] = _add_crest(data["squad"])
+    for m in data.get("moves", []):
+        _add_crest([m["out"], m["in"]])
+    if data.get("captain"):
+        _add_crest([data["captain"]])
+    if data.get("vice"):
+        _add_crest([data["vice"]])
+    data["verdict"] = llm.explain_reckoning(data).get("text", "")
+    return data
+
+
 _STATS_CACHE = {"at": 0.0, "data": None}
 
 
