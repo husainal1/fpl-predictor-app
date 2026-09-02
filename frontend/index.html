@@ -17,7 +17,9 @@
   main{max-width:1000px;margin:0 auto;padding:8px 18px 60px}
   nav{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}
   nav button{background:var(--card);color:var(--mut);border:1px solid var(--line);padding:8px 13px;border-radius:9px;cursor:pointer;font-size:13px}
-  nav button.active{color:var(--txt);border-color:var(--acc2);background:var(--active)}
+  nav button:hover{border-color:var(--gold)}
+  nav button.active{color:#2a2205;border-color:var(--gold);background:var(--gold);font-weight:700}
+  html[data-theme="light"] nav button.active{color:#2a2205}
   .ctl{margin-left:auto;color:var(--mut);font-size:13px;display:flex;align-items:center;gap:6px}
   select,input{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:9px 0}
@@ -114,6 +116,13 @@
   .feat .fic{font-size:24px;margin-bottom:8px}
   .feat h3{margin:0 0 6px;font-size:15px}
   .feat p{margin:0;font-size:13px;color:var(--mut);line-height:1.5}
+  .feat.featured{display:flex;align-items:center;gap:16px;max-width:920px;margin:28px auto 0;border-color:var(--gold);cursor:pointer}
+  .feat.featured .glyph{width:34px;height:34px;margin:0;flex:none}
+  .feat.featured .ftxt{flex:1;min-width:0}
+  .feat.featured h3{font-size:17px;margin:0 0 4px}
+  .feat.featured p{margin:0}
+  .feat.featured .feat-arrow{margin-left:auto;color:var(--gold);font-size:22px;font-weight:800;flex:none}
+  .feats.six{margin-top:14px}
   .soon{text-align:center;color:var(--mut);font-size:13px;border:1px dashed var(--line);border-radius:12px;padding:14px 16px;max-width:660px;margin:0 auto 26px}
   .seg2{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
   .seg2 button{background:transparent;color:var(--mut);border:0;padding:6px 13px;cursor:pointer;font-size:13px;font-weight:600}
@@ -654,8 +663,8 @@ function renderHome(){
      <p class="herometa">Predicting <b>GW${gw}</b>${m.model_mae?` · beats a form-average baseline (${m.model_mae.toFixed(2)} vs ${(m.baseline_mae||0).toFixed(2)} MAE)`:""} · ${h.season_started?"live season data":"pre-season form"}</p>
      <div class="herocta"><button class="cta" onclick="goTab('forecast')">Open the Prime Timeline →</button><button class="cta ghost" onclick="goTab('builder')">Build in the Forge →</button></div>
    </section>
-   <div class="feats">${FEATS.map(f=>`<div class="feat" onclick="goTab('${f[0]}')">${GLYPH[f[0]]||""}<h3>${esc(f[1])}</h3><p>${esc(f[2])}</p></div>`).join("")}</div>
-   <div class="soon">Coming soon — import your real FPL team into The Forge and get AI-written transfer, captain and chip calls.</div>`;
+   <div class="feat featured" onclick="goTab('reckoning')">${GLYPH.reckoning||""}<div class="ftxt"><h3>The Reckoning</h3><p>Import your real FPL team for the optimal captain, transfers, chip strategies and a 3-gameweek plan.</p></div><span class="feat-arrow">→</span></div>
+   <div class="feats six">${FEATS.filter(f=>f[0]!=="reckoning").map(f=>`<div class="feat" onclick="goTab('${f[0]}')">${GLYPH[f[0]]||""}<h3>${esc(f[1])}</h3><p>${esc(f[2])}</p></div>`).join("")}</div>`;
 }
 
 /* ------------------------- value (list first, chart optional) ------------------------- */
@@ -753,7 +762,7 @@ function renderReckoning(){
       <div class="body">Your team ID is a public number in your team's web address. To get it:
       <ol>
         <li>Go to <b>fantasy.premierleague.com</b> and log in.</li>
-        <li>Click the <b>Pick Team</b> or <b>Points</b> tab at the top.</li>
+        <li>Open the <b>Points</b> tab — or the <b>Pick Team</b> tab and then click <b>Gameweek history</b>. (Pick Team on its own won't show the number.)</li>
         <li>Look at the address bar — you'll see <code>…/entry/1234567/event/3</code>. The number straight after <code>/entry/</code> is your team ID.</li>
         <li>Copy that number in and hit <b>Load my team</b>.</li>
       </ol>
