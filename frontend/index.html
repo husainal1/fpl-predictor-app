@@ -80,7 +80,7 @@
   .fcwrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
   table.fc{width:100%;border-collapse:collapse;font-size:13px;min-width:540px}
   table.fc th,table.fc td{padding:9px 11px;text-align:right;white-space:nowrap}
-  table.fc thead th{position:sticky;top:0;background:var(--thead);color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--line);z-index:1}
+  table.fc thead th{position:sticky;top:0;background:var(--thead);color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--gold);z-index:1}
   table.fc th.pl,table.fc td.pl{text-align:left}
   table.fc tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
   table.fc tbody tr:hover{background:var(--hover)}
@@ -89,6 +89,7 @@
   table.fc .pcell{display:flex;align-items:center;gap:9px}
   table.fc .pcell img{width:22px;height:26px;object-fit:contain;flex:none}
   table.fc .rk{color:var(--mut);min-width:20px;text-align:right;font-variant-numeric:tabular-nums}
+  table.fc .rk.top{color:var(--gold);font-weight:800}
   table.fc .pcol{display:flex;flex-direction:column;line-height:1.25;min-width:0}
   table.fc .pnm{font-weight:600}
   table.fc .psub{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}
@@ -131,6 +132,36 @@
   .tabhead .thsub{font-size:12.5px;color:var(--mut);margin-top:1px;line-height:1.4}
   .glyph{display:inline-block}
   .feat .glyph{width:26px;height:26px;color:var(--gold);margin-bottom:10px}
+  /* ---- Blueprint: captain podium + bar list ---- */
+  .bp-podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:10px auto 20px;max-width:560px}
+  .bp-col{flex:1;max-width:165px;text-align:center;cursor:pointer}
+  .bp-kw{height:54px;display:flex;align-items:flex-end;justify-content:center}
+  .bpkit{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+  .bp-col.first .bpkit{width:58px;height:58px}
+  .bp-cap{display:inline-block;font-size:10px;font-weight:800;color:#2a2205;background:var(--gold);padding:2px 10px;border-radius:20px;margin-bottom:4px;letter-spacing:.3px}
+  .bp-nm{font-weight:700;font-size:13px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bp-col.first .bp-nm{font-size:15px}
+  .bp-opp{font-size:10.5px;color:var(--mut)}
+  .bp-base{border:1px solid var(--line);border-radius:10px 10px 0 0;margin-top:7px;background:var(--card);padding:8px 0 12px}
+  .bp-col.first .bp-base{border:1.5px solid var(--gold);background:var(--active);padding:14px 0 20px}
+  .bp-proj{font-weight:800;color:var(--gold);font-size:20px;font-variant-numeric:tabular-nums}
+  .bp-col.first .bp-proj{font-size:30px}
+  .bp-rk{font-size:14px;color:var(--mut)}
+  .bp-col.first .bp-rk{color:var(--gold);font-size:16px}
+  .bp-list{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .bp-lrow{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+  .bp-lrow:last-child{border-bottom:0}
+  .bp-lrow:hover{background:var(--hover)}
+  .bp-lrank{width:18px;font-weight:800;color:var(--mut);font-variant-numeric:tabular-nums;text-align:right}
+  .bprk{width:24px;height:28px;object-fit:contain;flex:none}
+  .bp-lwho{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+  .bp-lnm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bp-lsub{font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bp-lbar{width:130px;height:8px;background:var(--soft);border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:none}
+  .bp-lbar span{display:block;height:100%;background:var(--gold)}
+  .bp-lpts{width:38px;text-align:right;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+  .bp-hint{text-align:center;font-size:11.5px;margin-top:10px}
+  @media(max-width:520px){.bp-lbar{width:66px}}
 </style>
 </head>
 <body>
@@ -282,6 +313,42 @@ window.explainInline = async (pid)=>{
        <span class="var muted"></span></div></div>`;
 };
 
+/* ------------------------- Blueprint (picks) ------------------------- */
+function bpPodium(p, rank){
+  const first=rank===1, opp=oppText(p);
+  const label=rank===1?"1st":rank===2?"2nd":"3rd";
+  return `<div class="bp-col${first?" first":""}" onclick="explainInline(${p.player_id})">
+    ${first?'<div class="bp-cap">CAPTAIN PICK</div>':""}
+    <div class="bp-kw">${kitImg(p,"bpkit")}</div>
+    <div class="bp-nm">${esc(p.web_name)}</div>
+    <div class="bp-opp">${esc(p.team_name)}${opp?" · "+opp:""}</div>
+    <div class="bp-base"><div class="bp-proj">${num(p.pred_points)}</div><div class="bp-rk">${label}</div></div>
+  </div>`;
+}
+function bpRow(p, rank, max){
+  const w=Math.max(5,Math.round((+p.pred_points)/(max||1)*100)), opp=oppText(p);
+  return `<div class="bp-lrow" onclick="explainInline(${p.player_id})">
+    <span class="bp-lrank">${rank}</span>${kitImg(p,"bprk")}
+    <span class="bp-lwho"><span class="bp-lnm">${esc(p.web_name)}</span>
+      <span class="bp-lsub">${esc(p.position)} · ${esc(p.team_name)}${opp?" · "+opp:""} · £${p.price}m</span></span>
+    <span class="bp-lbar"><span style="width:${w}%"></span></span>
+    <span class="bp-lpts">${num(p.pred_points)}</span>
+  </div>`;
+}
+function renderPicks(players){
+  const ps=(players||[]).slice();
+  if(!ps.length){ view.innerHTML=`<div class="card muted">No predictions available yet.</div>`; return; }
+  const max=+ps[0].pred_points||1;
+  const podium = ps.length>=3
+    ? `<div class="bp-podium">${bpPodium(ps[1],2)}${bpPodium(ps[0],1)}${bpPodium(ps[2],3)}</div>`
+    : `<div class="grid">${ps.map(p=>playerCard(p)).join("")}</div>`;
+  const rest = ps.slice(3,25);
+  const list = rest.length ? `<div class="bp-list">${rest.map((p,i)=>bpRow(p,i+4,max)).join("")}</div>` : "";
+  view.innerHTML = podium + list
+    + `<div class="bp-hint muted">Tap any player for the AI take on why they're projected here.</div>`
+    + `<div id="explbox" style="margin-top:12px"></div>`;
+}
+
 async function loadAll(){
   if(ALL) return ALL;
   const d = await g("/api/predictions?limit=700");
@@ -297,7 +364,7 @@ async function render(){
     }
     else if(TAB==="picks"){
       const d = await g("/api/predictions?limit=40");
-      view.innerHTML = `<div class="grid">`+d.players.map(p=>playerCard(p,`proj ${num(p.pred_points)} pts`)).join("")+`</div>`;
+      renderPicks(d.players||[]);
     }
     else if(TAB==="squad"){
       const d = await g("/api/squad");
@@ -444,7 +511,7 @@ function fcTableHTML(){
   const body = shown.map((p,i)=>{
     const cells = p.gw_points.map(v=>`<td>${(+v).toFixed(1)}</td>`).join("");
     return `<tr onclick="explainInline(${p.player_id})">
-        <td class="pl"><span class="pcell"><span class="rk">${i+1}</span>${kitImg(p,'fckit')}
+        <td class="pl"><span class="pcell"><span class="rk${i<3?' top':''}">${i+1}</span>${kitImg(p,'fckit')}
           <span class="pcol"><span class="pnm">${esc(p.web_name)}</span>
           <span class="psub">${esc(p.position)} · ${esc(p.team_name)} · £${p.price}m · ${p.owned_pct}%</span></span></span></td>
         ${cells}<td class="tot">${(+p.total).toFixed(1)}</td></tr>`;
@@ -490,7 +557,7 @@ function stTableHTML(){
   const head=`<tr><th class="pl" onclick="stSort('web_name')">Player${ar('web_name')}</th>`+STCOLS.map(c=>`<th onclick="stSort('${c[0]}')">${c[1]}${ar(c[0])}</th>`).join("")+`</tr>`;
   const body=rows.map((p,i)=>{
     const cells=STCOLS.map(c=>{const v=p[c[0]];const cls=c[0]==="total_points"?' class="tot"':'';return `<td${cls}>${(v==null||isNaN(+v))?"–":(+v).toFixed(c[2])}</td>`;}).join("");
-    return `<tr><td class="pl"><span class="pcell"><span class="rk">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td>${cells}</tr>`;
+    return `<tr><td class="pl"><span class="pcell"><span class="rk${i<3?' top':''}">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td>${cells}</tr>`;
   }).join("");
   return `<div class="fcwrap"><table class="fc"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
@@ -540,7 +607,7 @@ function valListHTML(P){
   if(!arr.length)return `<div class="card muted">No players match.</div>`;
   const ar=k=>VAL.sortKey===k?(VAL.dir<0?" ↓":" ↑"):"";
   const head=`<tr><th class="pl" onclick="valSort('web_name')">Player${ar('web_name')}</th>`+VALCOLS.map(c=>`<th onclick="valSort('${c[0]}')">${c[1]}${ar(c[0])}</th>`).join("")+`</tr>`;
-  const body=arr.map((p,i)=>{const diff=+p.owned_pct<10;return `<tr><td class="pl"><span class="pcell"><span class="rk">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}${diff?' <span style="color:var(--acc);font-size:10px" title="Differential">◆</span>':''}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td><td>£${p.price}m</td><td class="tot">${num(p.pred_points)}</td><td>${num(p.ppm)}</td><td>${(+p.owned_pct).toFixed(1)}</td></tr>`;}).join("");
+  const body=arr.map((p,i)=>{const diff=+p.owned_pct<10;return `<tr><td class="pl"><span class="pcell"><span class="rk${i<3?' top':''}">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}${diff?' <span style="color:var(--acc);font-size:10px" title="Differential">◆</span>':''}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td><td>£${p.price}m</td><td class="tot">${num(p.pred_points)}</td><td>${num(p.ppm)}</td><td>${(+p.owned_pct).toFixed(1)}</td></tr>`;}).join("");
   return `<div class="fcwrap"><table class="fc"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 function ensureTip(){let t=document.getElementById("vtip");if(!t){t=document.createElement("div");t.id="vtip";t.style.cssText="position:fixed;z-index:9999;pointer-events:none;background:var(--soft);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:12px;display:none;box-shadow:0 6px 18px rgba(0,0,0,.35);max-width:230px";document.body.appendChild(t);}return t;}
