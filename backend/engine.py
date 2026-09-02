@@ -260,15 +260,23 @@ class EngineState:
 # --------------------------------------------------------------------------- #
 # Optimizer (PuLP)
 # --------------------------------------------------------------------------- #
-def optimize_squad(pred_df, budget=SQUAD_BUDGET, max_per_club=3, squad=(2, 5, 5, 3), starters=11):
+def optimize_squad(pred_df, budget=SQUAD_BUDGET, max_per_club=3, squad=(2, 5, 5, 3),
+                   starters=11, bench_floor=0.5, bench_weight=0.15):
     from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpBinary, PULP_CBC_CMD
     d = pred_df.reset_index(drop=True).copy()
+    # Only consider players projected above a small floor, so the bench is filled
+    # with nailed, cheap starters a manager would actually roster — never dead-weight
+    # fodder projecting zero/negative points.
+    d = d[d["pred_points"] > bench_floor].reset_index(drop=True)
     P = range(len(d))
     pick = LpVariable.dicts("pick", P, cat=LpBinary)
     start = LpVariable.dicts("start", P, cat=LpBinary)
     cap = LpVariable.dicts("cap", P, cat=LpBinary)
     prob = LpProblem("fpl", LpMaximize)
-    prob += lpSum((start[i] + cap[i]) * d.loc[i, "pred_points"] for i in P)
+    # Maximise starting XI + captain, with a light reward on bench projection so the
+    # four bench slots go to the best-projected cheap options rather than the cheapest.
+    prob += lpSum((start[i] + cap[i]) * d.loc[i, "pred_points"] for i in P) \
+        + bench_weight * lpSum((pick[i] - start[i]) * d.loc[i, "pred_points"] for i in P)
     prob += lpSum(pick[i] for i in P) == sum(squad)
     prob += lpSum(pick[i] * d.loc[i, "price"] for i in P) <= budget
     prob += lpSum(start[i] for i in P) == starters
