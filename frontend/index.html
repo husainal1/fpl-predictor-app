@@ -193,6 +193,30 @@
   .sec-h{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 6px}
   .slot .shirt.new{outline:2px solid var(--gold);outline-offset:1px;border-radius:10px}
   .slot .in-tag{font-size:9px;font-weight:800;color:#2a2205;background:var(--gold);border-radius:4px;padding:0 4px;margin-top:2px;display:inline-block}
+  .rck-help{margin:2px 0 14px;font-size:12.5px;color:var(--mut);background:var(--card);border:1px solid var(--line);border-radius:11px;padding:0}
+  .rck-help summary{cursor:pointer;color:var(--acc2);padding:10px 14px;font-weight:600;list-style:none}
+  .rck-help summary::-webkit-details-marker{display:none}
+  .rck-help summary::before{content:"›";display:inline-block;margin-right:8px;transition:transform .15s}
+  .rck-help[open] summary::before{transform:rotate(90deg)}
+  .rck-help .body{padding:0 16px 12px 34px}
+  .rck-help ol{margin:4px 0 0;padding-left:16px;line-height:1.75}
+  .rck-help b{color:var(--txt)}
+  .rck-help code{background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px}
+  .plangrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:6px}
+  .plan{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .plan.best{border-color:var(--gold)}
+  .plan-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .plan-nm{font-weight:800;font-size:15px}
+  .plan-net{font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+  .plan-sub{font-size:11.5px;color:var(--mut);margin-bottom:6px}
+  .pg{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px}
+  .pg-gw{font-weight:800;color:var(--mut);min-width:36px}
+  .pg-body{flex:1;line-height:1.45}
+  .pg-body .o{color:#ff8b8b}.pg-body .i{color:var(--acc)}
+  .pg-roll{color:var(--mut)}
+  .pg-hit{color:#ff8b8b;font-size:11px;margin-left:4px}
+  .pg-pts{font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+  .plan-tag{font-size:10px;color:#2a2205;background:var(--gold);border-radius:4px;padding:1px 5px;font-weight:800;margin-left:6px}
 </style>
 </head>
 <body>
@@ -613,6 +637,7 @@ const FEATS=[
   ["forecast","The Prime Timeline","Every player's points, projected gameweek by gameweek."],
   ["picks","The Blueprint","This week's highest projected scorers, each with an AI take."],
   ["builder","The Forge","Build and price a full 15-man squad by hand."],
+  ["reckoning","The Reckoning","Import your team for the optimal captain, transfers and chips."],
   ["value","Anomalies","The best points per £m and the low-owned differentials."],
   ["stats","The Ledger","Real season stats — goals, xG, xGI, minutes and more."],
   ["squad","Apex Projections","The best XI and captain your budget can buy."]
@@ -702,7 +727,10 @@ function rckVerdict(r){
       <span class="gain">+${num(m.gain)}</span></div>`).join("")
     : `<div class="card muted">No transfer beats holding your team this week.</div>`;
   const chips = (r.chips&&r.chips.length)
-    ? `<div class="sec-h">Chips</div><div class="chiprow">${r.chips.map(c=>`<div class="chip"><b>${esc(c.chip)}</b> · ${esc(c.note)}</div>`).join("")}</div>` : "";
+    ? `<div class="sec-h">Chips</div>`+r.chips.map(c=>`<div class="chip" style="display:block;margin:7px 0">
+        <b>${esc(c.chip)}</b> · ${esc(c.note)}
+        ${c.buildable?` <button class="why" onclick="rckChip('${c.buildable}',this)">Show the optimal team →</button>`:""}
+        <div class="chipteam"></div></div>`).join("") : "";
   const cap=r.captain, vice=r.vice;
   const capv = cap?`${esc(cap.web_name)}${vice?` <span class="muted" style="font-size:12px">(VC ${esc(vice.web_name)})</span>`:""}`:"—";
   return `<div class="verdict"><h3>The verdict</h3>${esc(r.verdict||"")}</div>
@@ -717,8 +745,16 @@ function renderReckoning(){
   const R=RCK;
   let html=`<div class="rck-in">
       <input id="rckid" placeholder="Your FPL team ID (e.g. 1234567)" value="${esc(R.id)}" inputmode="numeric" onkeydown="if(event.key==='Enter')rckLoad()">
-      <button class="cta" onclick="rckLoad()">Load my team</button>
-      <span class="muted" style="font-size:12px">It's in your FPL URL: fantasy.premierleague.com/entry/<b>ID</b>/event/…</span></div>`;
+      <button class="cta" onclick="rckLoad()">Load my team</button></div>
+    <details class="rck-help"><summary>Where do I find my team ID?</summary>
+      <div class="body">Your team ID is a public number in your team's web address. To get it:
+      <ol>
+        <li>Go to <b>fantasy.premierleague.com</b> and log in.</li>
+        <li>Click the <b>Pick Team</b> or <b>Points</b> tab at the top.</li>
+        <li>Look at the address bar — you'll see <code>…/entry/1234567/event/3</code>. The number straight after <code>/entry/</code> is your team ID.</li>
+        <li>Copy that number in and hit <b>Load my team</b>.</li>
+      </ol>
+      On the mobile app, tap the team menu and choose "View on web" to see the same address.</div></details>`;
   if(R.error) html+=`<div class="card" style="color:#ff8b8b">${esc(R.error)}</div>`;
   if(R.loading) html+=`<div class="loading">Working…</div>`;
   if(R.team){
@@ -736,6 +772,10 @@ function renderReckoning(){
     }else{
       html+=`<div class="sec-h">Your current squad</div>`+rckPitch(t.squad,false);
     }
+    html+=`<div class="sec-h">Multi-gameweek plans</div>
+      <div class="muted" style="font-size:12.5px;margin-bottom:8px">Three strategies across the next 3 gameweeks — Patient, Balanced and Aggressive. Takes a few seconds to crunch.</div>
+      <button class="rck-run" style="margin-left:0" onclick="rckPlan(this)">Build my 3-GW plan</button>
+      <div id="rckplan" style="margin-top:10px"></div>`;
   }
   view.innerHTML=html;
 }
@@ -760,6 +800,41 @@ window.rckSolve=async ()=>{
     if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||"Couldn't solve that team."); }
     RCK.result=await r.json(); RCK.loading=false; renderReckoning();
   }catch(e){ RCK.loading=false; RCK.error=e.message||"Couldn't solve that team."; renderReckoning(); }
+};
+window.rckChip=async (chip,btn)=>{
+  const box=btn.closest(".chip").querySelector(".chipteam"); if(!box) return;
+  box.innerHTML=`<div class="loading">Building the optimal team…</div>`;
+  try{
+    const r=await fetch(API+`/api/chip/${RCK.id}?chip=${chip}`,{credentials:"include"});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||"Couldn't build that team."); }
+    const d=await r.json();
+    box.innerHTML=`<div class="rck-stat" style="margin:10px 0">
+        <div class="s"><div class="k">Projected · ${esc(d.metric_label)}</div><div class="v gold">${num(d.metric)}</div></div>
+        <div class="s"><div class="k">vs your team</div><div class="v good">${d.delta>=0?"+":""}${num(d.delta)}</div></div>
+        <div class="s"><div class="k">Changes</div><div class="v">${d.changes}</div></div>
+      </div>${rckPitch(d.squad,true)}`;
+  }catch(e){ box.innerHTML=`<div class="card" style="color:#ff8b8b">${esc(e.message||"Couldn't build that team.")}</div>`; }
+};
+function planCard(p, best){
+  const rows=p.gws.map(g=>{
+    let body;
+    if(!g.moves||!g.moves.length) body=`<span class="pg-roll">Roll — bank the transfer</span>`;
+    else body=g.moves.map(m=>`<span class="o">${esc(m.out.web_name)}</span> → <span class="i">${esc(m.in.web_name)}</span>`).join(", ")+(g.hit?`<span class="pg-hit">−${g.hit}</span>`:"");
+    return `<div class="pg"><span class="pg-gw">GW${g.gw}</span><span class="pg-body">${body}</span><span class="pg-pts">${num(g.points)}</span></div>`;
+  }).join("");
+  return `<div class="plan${best?' best':''}"><div class="plan-h"><span class="plan-nm">${esc(p.name)}${best?'<span class="plan-tag">BEST NET</span>':''}</span><span class="plan-net">${p.net>=0?"+":""}${num(p.net)}</span></div>
+    <div class="plan-sub">${num(p.points)} pts · ${p.hits} in hits</div>${rows}</div>`;
+}
+window.rckPlan=async (btn)=>{
+  const box=document.getElementById("rckplan"); if(!box) return;
+  box.innerHTML=`<div class="loading">Crunching three strategies across the next few gameweeks…</div>`;
+  try{
+    const r=await fetch(API+`/api/plan/${RCK.id}?weeks=3&ft=${RCK.ft}`,{credentials:"include"});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||"Couldn't build a plan."); }
+    const d=await r.json();
+    const best=Math.max.apply(null, d.plans.map(p=>p.net));
+    box.innerHTML=`<div class="plangrid">${d.plans.map(p=>planCard(p, p.net===best)).join("")}</div>`;
+  }catch(e){ box.innerHTML=`<div class="card" style="color:#ff8b8b">${esc(e.message||"Couldn't build a plan.")}</div>`; }
 };
 
 boot();
