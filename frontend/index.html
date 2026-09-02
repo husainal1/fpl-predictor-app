@@ -162,6 +162,37 @@
   .bp-lpts{width:38px;text-align:right;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
   .bp-hint{text-align:center;font-size:11.5px;margin-top:10px}
   @media(max-width:520px){.bp-lbar{width:66px}}
+  /* ---- The Reckoning ---- */
+  .rck-in{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 14px}
+  .rck-in input{min-width:190px;font-size:14px}
+  .rck-sum{display:flex;gap:16px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 14px;margin-bottom:12px;font-size:13px}
+  .rck-sum b{color:var(--txt)}
+  .rck-ctrl{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:12px 0}
+  .rck-ctrl label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:4px}
+  .rck-run{background:var(--gold);color:#2a2205;border:0;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:800;cursor:pointer;margin-left:auto}
+  .verdict{background:var(--soft);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:0 11px 11px 0;padding:14px 16px;margin:14px 0;font-size:14px;line-height:1.55}
+  .verdict h3{margin:0 0 6px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--gold)}
+  .rck-stat{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .rck-stat .s{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:120px}
+  .rck-stat .s .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  .rck-stat .s .v{font-size:20px;font-weight:800;margin-top:2px}
+  .rck-stat .s .v.gold{color:var(--gold)}
+  .rck-stat .s .v.good{color:var(--acc)}
+  .mv{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin:7px 0;background:var(--card)}
+  .mv .side{display:flex;align-items:center;gap:7px;min-width:0}
+  .mvkit{width:22px;height:26px;object-fit:contain;flex:none}
+  .mv .side .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mv .tag{font-size:9px;font-weight:800;letter-spacing:.3px;border-radius:4px;padding:1px 4px}
+  .mv .tag.out{color:#ff8b8b;border:1px solid #5a2a2a}
+  .mv .tag.in{color:var(--acc);border:1px solid #2a5a3a}
+  .mv .arrow{color:var(--mut)}
+  .mv .gain{margin-left:auto;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+  .chiprow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .chip{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12.5px;background:var(--card)}
+  .chip b{color:var(--gold)}
+  .sec-h{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 6px}
+  .slot .shirt.new{outline:2px solid var(--gold);outline-offset:1px;border-radius:10px}
+  .slot .in-tag{font-size:9px;font-weight:800;color:#2a2205;background:var(--gold);border-radius:4px;padding:0 4px;margin-top:2px;display:inline-block}
 </style>
 </head>
 <body>
@@ -187,6 +218,7 @@
     <button data-tab="forecast">The Prime Timeline</button>
     <button data-tab="picks">The Blueprint</button>
     <button data-tab="builder">The Forge</button>
+    <button data-tab="reckoning">The Reckoning</button>
     <button data-tab="value">Anomalies</button>
     <button data-tab="stats">The Ledger</button>
     <button data-tab="squad">Apex Projections</button>
@@ -219,7 +251,8 @@ const GLYPH = {
   builder:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3l-5.5 3 2 4L8 9v12h8V9l2.5 1 2-4L15 3l-3 2.4z"/></svg>`,
   value:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,2.5 21.5,12 12,21.5 2.5,12"/><polygon points="12,8 16,12 12,16 8,12" fill="currentColor" stroke="none"/></svg>`,
   stats:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="13"/><line x1="10" y1="21" x2="10" y2="6"/><line x1="16" y1="21" x2="16" y2="15"/><line x1="21" y1="21" x2="21" y2="10"/></svg>`,
-  squad:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18"/><path d="M3 19l2-11 5 6 2-9 2 9 5-6 2 11z"/></svg>`
+  squad:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18"/><path d="M3 19l2-11 5 6 2-9 2 9 5-6 2 11z"/></svg>`,
+  reckoning:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"/><path d="M8 20h8"/><path d="M5 8h14"/><path d="M5 8l-2.5 5.5a2.8 2.8 0 0 0 5 0z"/><path d="M19 8l-2.5 5.5a2.8 2.8 0 0 0 5 0z"/><circle cx="12" cy="5" r="1.3"/></svg>`
 };
 const TABMETA = {
   forecast:["The Prime Timeline","Every player's points, projected gameweek by gameweek across the weeks ahead."],
@@ -227,7 +260,8 @@ const TABMETA = {
   builder:["The Forge","Build and price a full 15-man squad by hand, within budget and the FPL squad rules."],
   value:["Anomalies","The best points per £m and the low-owned differentials most managers are missing."],
   stats:["The Ledger","Real season stats so far — goals, assists, xG, xGI, minutes, bonus and more."],
-  squad:["Apex Projections","The single best XI and captain your £100m can buy for this gameweek."]
+  squad:["Apex Projections","The single best XI and captain your £100m can buy for this gameweek."],
+  reckoning:["The Reckoning","Import your real FPL team and get the optimal captain, transfers and chip calls."]
 };
 function setTabHead(tab){
   const el=document.getElementById("tabhead"); if(!el) return;
@@ -387,6 +421,9 @@ async function render(){
     }
     else if(TAB==="builder"){
       await loadAll(); renderBuilder();
+    }
+    else if(TAB==="reckoning"){
+      renderReckoning();
     }
     else if(TAB==="forecast"){
       await loadForecast();
@@ -637,6 +674,94 @@ function renderValue(){
   const bar=`<div class="fcbar">${seg}<div class="posfilter row">${posBtns}</div>${diffTgl}<span class="muted" style="font-size:12px;margin-left:auto">Best points per £m${VAL.diffOnly?" · under 10% owned":""}</span></div>`;
   view.innerHTML=bar+(VAL.mode==="chart"?valChartHTML(P):valListHTML(P));
 }
+/* ------------------------- The Reckoning (solver) ------------------------- */
+const RCK={id:"",ft:1,hit:0,team:null,result:null,loading:false,error:""};
+try{RCK.id=localStorage.getItem("fpl_entry")||"";}catch(e){}
+
+function rckStart(p){ return p.is_start!=null ? p.is_start : (p.slot&&p.slot<=11?1:0); }
+function rckSlot(p, showNew){
+  const cap=p.is_captain?'<span class="capbadge">C</span>'
+    :(p.is_vice?'<span class="capbadge" style="background:var(--mut);color:#0a0f0b">V</span>':'');
+  const isNew=showNew&&p.is_new;
+  return `<div class="slot filled"><div class="shirt${isNew?' new':''}">${kitImg(p,"kit")}${cap}</div>
+      <div class="snm">${esc(p.web_name)}</div><div class="spt">${num(p.pred_points)}</div>
+      ${isNew?'<div class="in-tag">IN</div>':''}</div>`;
+}
+function rckPitch(squad, showNew){
+  const st=squad.filter(p=>rckStart(p)), bn=squad.filter(p=>!rckStart(p));
+  const line=pos=>`<div class="pline">${st.filter(p=>p.position===pos).map(p=>rckSlot(p,showNew)).join("")}</div>`;
+  return `<div class="pitch">${line("GK")}${line("DEF")}${line("MID")}${line("FWD")}</div>
+    <div class="xi"><h3>Bench</h3><div class="pline" style="justify-content:flex-start">${bn.map(p=>rckSlot(p,showNew)).join("")}</div></div>`;
+}
+function rckVerdict(r){
+  const stat=(k,v,cls)=>`<div class="s"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div></div>`;
+  const moves = (r.moves&&r.moves.length) ? r.moves.map(m=>`<div class="mv">
+      <span class="side"><span class="tag out">OUT</span>${kitImg(m.out,"mvkit")}<span class="nm">${esc(m.out.web_name)}</span></span>
+      <span class="arrow">→</span>
+      <span class="side"><span class="tag in">IN</span>${kitImg(m.in,"mvkit")}<span class="nm">${esc(m.in.web_name)}</span></span>
+      <span class="gain">+${num(m.gain)}</span></div>`).join("")
+    : `<div class="card muted">No transfer beats holding your team this week.</div>`;
+  const chips = (r.chips&&r.chips.length)
+    ? `<div class="sec-h">Chips</div><div class="chiprow">${r.chips.map(c=>`<div class="chip"><b>${esc(c.chip)}</b> · ${esc(c.note)}</div>`).join("")}</div>` : "";
+  const cap=r.captain, vice=r.vice;
+  const capv = cap?`${esc(cap.web_name)}${vice?` <span class="muted" style="font-size:12px">(VC ${esc(vice.web_name)})</span>`:""}`:"—";
+  return `<div class="verdict"><h3>The verdict</h3>${esc(r.verdict||"")}</div>
+    <div class="rck-stat">
+      ${stat("Captain", capv, "gold")}
+      ${stat("Transfers", (r.transfers_made||0)+((r.paid_transfers)?` · −${r.hit_cost} hit`:""))}
+      ${stat("Net gain / "+r.horizon_weeks+" GW", (r.net_gain>=0?"+":"")+num(r.net_gain), "good")}
+    </div>
+    <div class="sec-h">Transfers</div>${moves}${chips}`;
+}
+function renderReckoning(){
+  const R=RCK;
+  let html=`<div class="rck-in">
+      <input id="rckid" placeholder="Your FPL team ID (e.g. 1234567)" value="${esc(R.id)}" inputmode="numeric" onkeydown="if(event.key==='Enter')rckLoad()">
+      <button class="cta" onclick="rckLoad()">Load my team</button>
+      <span class="muted" style="font-size:12px">It's in your FPL URL: fantasy.premierleague.com/entry/<b>ID</b>/event/…</span></div>`;
+  if(R.error) html+=`<div class="card" style="color:#ff8b8b">${esc(R.error)}</div>`;
+  if(R.loading) html+=`<div class="loading">Working…</div>`;
+  if(R.team){
+    const t=R.team;
+    html+=`<div class="rck-sum"><div><b>${esc(t.team_name_entry||"Your team")}</b> <span class="muted">${esc(t.manager||"")}</span></div>
+      <div>Squad value <b>£${t.squad_value}m</b></div><div>In the bank <b>£${t.bank}m</b></div>
+      <div>Chips left <b>${t.chips_available&&t.chips_available.length?esc(t.chips_available.join(", ")):"none"}</b></div></div>`;
+    html+=`<div class="rck-ctrl">
+      <label>Free transfers<select id="rckft">${[0,1,2,3,4,5].map(n=>`<option value="${n}" ${n===R.ft?"selected":""}>${n}</option>`).join("")}</select></label>
+      <label>Points I'll spend on hits<select id="rckhit">${[0,4,8,12,16].map(n=>`<option value="${n}" ${n===R.hit?"selected":""}>${n}</option>`).join("")}</select></label>
+      <button class="rck-run" onclick="rckSolve()">Run the Reckoning</button></div>`;
+    if(R.result){
+      html+=rckVerdict(R.result);
+      html+=`<div class="sec-h">Recommended squad <span class="muted" style="text-transform:none;letter-spacing:0">· gold ring = transfer in · C captain</span></div>`+rckPitch(R.result.squad,true);
+    }else{
+      html+=`<div class="sec-h">Your current squad</div>`+rckPitch(t.squad,false);
+    }
+  }
+  view.innerHTML=html;
+}
+window.rckLoad=async ()=>{
+  const el=document.getElementById("rckid"); const id=((el?el.value:RCK.id)||"").trim();
+  if(!/^\d+$/.test(id)){ RCK.error="Enter your numeric FPL team ID."; RCK.team=null; RCK.result=null; renderReckoning(); return; }
+  RCK.id=id; RCK.error=""; RCK.team=null; RCK.result=null; RCK.loading=true; renderReckoning();
+  try{ localStorage.setItem("fpl_entry",id); }catch(e){}
+  try{
+    const r=await fetch(API+`/api/team/${id}`,{credentials:"include"});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||"Couldn't load that team."); }
+    RCK.team=await r.json(); RCK.loading=false; renderReckoning();
+  }catch(e){ RCK.loading=false; RCK.error=e.message||"Couldn't load that team."; renderReckoning(); }
+};
+window.rckSolve=async ()=>{
+  const ftEl=document.getElementById("rckft"),hitEl=document.getElementById("rckhit");
+  if(ftEl) RCK.ft=+ftEl.value; if(hitEl) RCK.hit=+hitEl.value;
+  if(!RCK.id){ RCK.error="Load a team first."; renderReckoning(); return; }
+  RCK.loading=true; RCK.error=""; RCK.result=null; renderReckoning();
+  try{
+    const r=await fetch(API+`/api/solve/${RCK.id}?ft=${RCK.ft}&hit_budget=${RCK.hit}`,{credentials:"include"});
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.detail||"Couldn't solve that team."); }
+    RCK.result=await r.json(); RCK.loading=false; renderReckoning();
+  }catch(e){ RCK.loading=false; RCK.error=e.message||"Couldn't solve that team."; renderReckoning(); }
+};
+
 boot();
 </script>
 </body>
