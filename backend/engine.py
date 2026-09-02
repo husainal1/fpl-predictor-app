@@ -262,6 +262,12 @@ class EngineState:
     def solve(self, entry_id, ft=1, hit_budget=0, horizon_n=5):
         return solve_team(self, entry_id, ft=ft, hit_budget=hit_budget, horizon_n=horizon_n)
 
+    def chip_team(self, entry_id, chip="wildcard", horizon_n=5):
+        return chip_team(self, entry_id, chip=chip, horizon_n=horizon_n)
+
+    def plan(self, entry_id, weeks=3, ft=1):
+        return plan_team(self, entry_id, weeks=weeks, ft=ft)
+
 
 # --------------------------------------------------------------------------- #
 # Optimizer (PuLP)
@@ -334,14 +340,14 @@ def _projection_pool(state, horizon_n=5):
     return hz
 
 
-def _pick_xi(df):
-    """Best starting 11 from a fixed squad (maximise horizon points, legal formation)."""
+def _pick_xi(df, coeff="horizon_points"):
+    """Best starting 11 from a fixed squad (maximise `coeff`, legal formation)."""
     from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpBinary, PULP_CBC_CMD
     d = df.reset_index(drop=True)
     P = range(len(d))
     start = LpVariable.dicts("x", P, cat=LpBinary)
     prob = LpProblem("xi", LpMaximize)
-    prob += lpSum(start[i] * float(d.loc[i, "horizon_points"]) for i in P)
+    prob += lpSum(start[i] * float(d.loc[i, coeff]) for i in P)
     prob += lpSum(start[i] for i in P) == 11
     for pos in VALID_POS:
         idx = [i for i in P if d.loc[i, "position"] == pos]
@@ -350,7 +356,7 @@ def _pick_xi(df):
     prob.solve(PULP_CBC_CMD(msg=0))
     starters = {int(d.loc[i, "player_id"]) for i in P if (value(start[i]) or 0) > 0.5}
     xi = d[d["player_id"].astype(int).isin(starters)]
-    hz_tot = float(xi["horizon_points"].sum())
+    hz_tot = float(xi[coeff].sum())
     cap = xi.sort_values("pred_points", ascending=False)
     cap_id = int(cap.iloc[0]["player_id"]) if len(cap) else None
     return starters, round(hz_tot, 2), cap_id
@@ -372,19 +378,29 @@ def import_team(state, entry_id, horizon_n=5, session_get=get_json):
         used = [c.get("name") for c in session_get(f"{BASE}/entry/{entry_id}/history/").get("chips", [])]
     except Exception:  # noqa: BLE001
         used = []
+    # Authoritative name/price/position for EVERY element (incl. players we hold no
+    # projection for), straight from bootstrap. Without this a picked player missing
+    # from the projection pool would show as "#id" at £0, which corrupts the solver's
+    # budget (a phantom free slot) — the cause of the "free transfer" bug.
+    boot = session_get(f"{BASE}/bootstrap-static/")
+    tname = {t["id"]: t["name"] for t in boot.get("teams", [])}
+    emap = {int(e["id"]): {"web_name": e.get("web_name"),
+                           "team_name": tname.get(e.get("team"), ""),
+                           "position": POS_MAP.get(e.get("element_type"), ""),
+                           "price": round((e.get("now_cost") or 0) / 10.0, 1)}
+            for e in boot.get("elements", [])}
     pool = _projection_pool(state, horizon_n).drop_duplicates("player_id").set_index("player_id")
-    pnow = state.players_now.drop_duplicates("player_id").set_index("player_id")
     squad = []
     for pk in picks_raw.get("picks", []):
         e = int(pk["element"])
         base = pool.loc[e] if e in pool.index else None
-        nm = pnow.loc[e, "web_name"] if e in pnow.index else (base["web_name"] if base is not None else f"#{e}")
-        tn = pnow.loc[e, "team_name"] if e in pnow.index else (base["team_name"] if base is not None else "")
-        ps = pnow.loc[e, "position"] if e in pnow.index else (base["position"] if base is not None else "")
-        pr = float(pnow.loc[e, "price"]) if e in pnow.index else (float(base["price"]) if base is not None else 0.0)
+        em = emap.get(e, {})
         squad.append({
-            "player_id": e, "web_name": nm, "team_name": tn, "position": ps,
-            "price": round(pr, 1),
+            "player_id": e,
+            "web_name": em.get("web_name") or (base["web_name"] if base is not None else f"#{e}"),
+            "team_name": em.get("team_name") or (base["team_name"] if base is not None else ""),
+            "position": em.get("position") or (base["position"] if base is not None else ""),
+            "price": round(float(em["price"]) if "price" in em else (float(base["price"]) if base is not None else 0.0), 1),
             "pred_points": round(float(base["pred_points"]) if base is not None else 0.0, 2),
             "horizon_points": round(float(base["horizon_points"]) if base is not None else 0.0, 2),
             "is_captain": bool(pk.get("is_captain")), "is_vice": bool(pk.get("is_vice_captain")),
@@ -406,7 +422,7 @@ def import_team(state, entry_id, horizon_n=5, session_get=get_json):
     }
 
 
-def _chip_advice(state, avail, horizon_n=5):
+def _chip_advice(state, avail, horizon_n=5, cap_name=None, cap_pred=None, bench_pred=None):
     fx = state.fixtures
     gws = list(range(state.next_gw, min(state.next_gw + horizon_n, 39)))
     dgw = []
@@ -418,16 +434,23 @@ def _chip_advice(state, avail, horizon_n=5):
                 dgw.append(g)
     except Exception:  # noqa: BLE001
         pass
+    dgw_note = (f" GW{dgw[0]} looks like a double." if dgw else "")
     out = []
     for label in avail:
-        if label in ("Bench Boost", "Triple Captain"):
-            out.append({"chip": label,
-                        "note": (f"Hold for GW{dgw[0]} — it looks like a double gameweek."
-                                 if dgw else "Hold — no double gameweeks in view yet.")})
-        elif label == "Free Hit":
-            out.append({"chip": label, "note": "Hold for a blank/double gameweek or an injury crisis."})
+        if label == "Triple Captain":
+            note = (f"Play on {cap_name} for roughly +{round(cap_pred, 1)} extra points this week."
+                    if cap_name and cap_pred else "Save for a premium captain in a double gameweek.")
+            out.append({"chip": label, "note": note + dgw_note})
+        elif label == "Bench Boost":
+            note = (f"Your bench projects about {round(bench_pred, 1)} points this week."
+                    if bench_pred is not None else "Save for a double gameweek when your bench plays.")
+            out.append({"chip": label, "note": note + dgw_note})
         elif label == "Wildcard":
-            out.append({"chip": label, "note": "Hold unless your team needs 3+ transfers at once."})
+            out.append({"chip": label, "buildable": "wildcard",
+                        "note": "Rebuild your whole team with unlimited free transfers — here's the optimal squad."})
+        elif label == "Free Hit":
+            out.append({"chip": label, "buildable": "freehit",
+                        "note": "A one-week optimal team that reverts after this gameweek — here's how it'd look."})
     return out
 
 
@@ -436,7 +459,12 @@ def solve_team(state, entry_id, ft=1, hit_budget=0, horizon_n=5, pool_cap=280):
     from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpBinary, PULP_CBC_CMD
     imp = import_team(state, entry_id, horizon_n)
     current_ids = {int(p["player_id"]) for p in imp["squad"]}
-    budget = float(imp["budget"])
+    # Budget for the new squad = your bank plus the value of the team you already own
+    # (at current prices). Holding your team is therefore always affordable, and buys
+    # are funded by the sales that pay for them.
+    bank = float(imp["bank"])
+    cur_price_total = sum(float(p["price"]) for p in imp["squad"])
+    budget_cap = round(bank + cur_price_total, 1)
     ft = max(0, min(5, int(ft)))
     max_paid = max(0, int(hit_budget) // 4)
 
@@ -463,7 +491,7 @@ def solve_team(state, entry_id, ft=1, hit_budget=0, horizon_n=5, pool_cap=280):
     prob = LpProblem("reckoning", LpMaximize)
     prob += lpSum(start[i] * float(d.loc[i, "horizon_points"]) for i in P) - 4 * paid
     prob += lpSum(pick[i] for i in P) == 15
-    prob += lpSum(pick[i] * float(d.loc[i, "price"]) for i in P) <= budget + 1e-6
+    prob += lpSum(pick[i] * float(d.loc[i, "price"]) for i in P) <= budget_cap + 1e-6
     for pos in VALID_POS:
         idx = [i for i in P if d.loc[i, "position"] == pos]
         prob += lpSum(pick[i] for i in idx) == SQUAD_NEED[pos]
@@ -534,9 +562,193 @@ def solve_team(state, entry_id, ft=1, hit_budget=0, horizon_n=5, pool_cap=280):
         "before_horizon": before_hz, "after_horizon": after_hz, "net_gain": net_gain,
         "moves": moves,
         "squad": squad_out,
-        "chips": _chip_advice(state, imp["chips_available"], horizon_n),
+        "chips": _chip_advice(state, imp["chips_available"], horizon_n,
+                              captain["web_name"] if captain is not None else None,
+                              float(captain["pred_points"]) if captain is not None else None,
+                              round(float(final[final["is_start"] == 0]["pred_points"].sum()), 2)),
         "chips_available": imp["chips_available"],
     }
+
+
+def chip_team(state, entry_id, chip="wildcard", horizon_n=5, pool_cap=280):
+    """Optimal squad if you play a chip now: Wildcard rebuilds for the horizon,
+    Free Hit builds the best one-week team. Budget = bank + current team value."""
+    from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpBinary, PULP_CBC_CMD
+    chip = "freehit" if str(chip).lower() in ("freehit", "free_hit", "fh") else "wildcard"
+    coeff = "pred_points" if chip == "freehit" else "horizon_points"
+    imp = import_team(state, entry_id, horizon_n)
+    current_ids = {int(p["player_id"]) for p in imp["squad"]}
+    budget_cap = round(float(imp["bank"]) + sum(float(p["price"]) for p in imp["squad"]), 1)
+
+    pool = _projection_pool(state, horizon_n)
+    have = set(pool["player_id"].astype(int))
+    missing = [p for p in imp["squad"] if int(p["player_id"]) not in have]
+    if missing:
+        pool = pd.concat([pool, pd.DataFrame([{"player_id": m["player_id"], "web_name": m["web_name"],
+            "team_name": m["team_name"], "position": m["position"], "price": m["price"], "games": 0,
+            "per_game": 0.0, "horizon_points": m["horizon_points"], "pred_points": m["pred_points"],
+            "owned_pct": 0.0} for m in missing])], ignore_index=True)
+    pool["player_id"] = pool["player_id"].astype(int)
+    cur = pool[pool["player_id"].isin(current_ids)]
+    rest = pool[~pool["player_id"].isin(current_ids)].sort_values(coeff, ascending=False).head(pool_cap)
+    d = pd.concat([cur, rest], ignore_index=True).drop_duplicates("player_id").reset_index(drop=True)
+    P = range(len(d))
+    pick = LpVariable.dicts("pk", P, cat=LpBinary)
+    start = LpVariable.dicts("st", P, cat=LpBinary)
+    prob = LpProblem("chip", LpMaximize)
+    prob += lpSum(start[i] * float(d.loc[i, coeff]) for i in P)
+    prob += lpSum(pick[i] for i in P) == 15
+    prob += lpSum(pick[i] * float(d.loc[i, "price"]) for i in P) <= budget_cap + 1e-6
+    for pos in VALID_POS:
+        idx = [i for i in P if d.loc[i, "position"] == pos]
+        prob += lpSum(pick[i] for i in idx) == SQUAD_NEED[pos]
+        prob += lpSum(start[i] for i in idx) >= XI_MIN[pos]
+        prob += lpSum(start[i] for i in idx) <= XI_MAX[pos]
+    for club in d["team_name"].dropna().unique():
+        idx = [i for i in P if d.loc[i, "team_name"] == club]
+        prob += lpSum(pick[i] for i in idx) <= 3
+    for i in P:
+        prob += start[i] <= pick[i]
+    prob += lpSum(start[i] for i in P) == 11
+    prob.solve(PULP_CBC_CMD(msg=0))
+    d["in_squad"] = [int(value(pick[i]) or 0) for i in P]
+    d["is_start"] = [int(value(start[i]) or 0) for i in P]
+    final = d[d["in_squad"] == 1].copy()
+    xi = final[final["is_start"] == 1].sort_values("pred_points", ascending=False)
+    captain = xi.iloc[0] if len(xi) else None
+    metric = round(float(final[final["is_start"] == 1][coeff].sum()), 2)
+    _, cur_metric, _ = _pick_xi(d[d["player_id"].isin(current_ids)].copy(), coeff)
+
+    def _fmt(row):
+        return {"player_id": int(row["player_id"]), "web_name": row["web_name"],
+                "team_name": row["team_name"], "position": row["position"],
+                "price": round(float(row["price"]), 1),
+                "pred_points": round(float(row["pred_points"]), 2),
+                "horizon_points": round(float(row["horizon_points"]), 2)}
+    squad_out = []
+    for _, r in final.sort_values(["is_start", "position"], ascending=[False, True]).iterrows():
+        rec = _fmt(r)
+        rec["is_start"] = int(r["is_start"])
+        rec["is_new"] = int(int(r["player_id"]) not in current_ids)
+        rec["is_captain"] = bool(captain is not None and int(r["player_id"]) == int(captain["player_id"]))
+        squad_out.append(rec)
+    weeks = min(horizon_n, max(1, 39 - state.next_gw))
+    return {
+        "chip": chip, "budget_cap": budget_cap,
+        "metric": metric, "current_metric": round(cur_metric, 2), "delta": round(metric - cur_metric, 2),
+        "metric_label": ("next gameweek" if chip == "freehit" else f"the next {weeks} GWs"),
+        "changes": int(sum(s["is_new"] for s in squad_out)),
+        "captain": _fmt(captain) if captain is not None else None,
+        "squad": squad_out,
+    }
+
+
+# ---- multi-gameweek transfer planner (3 strategies) ----------------------- #
+def _optimize_transfers(d, current_ids, budget_cap, ft, max_paid, rem_col, thisgw_col):
+    """One gameweek's optimal squad: maximise remaining-horizon XI value minus hits."""
+    from pulp import LpProblem, LpMaximize, LpVariable, lpSum, value, LpBinary, PULP_CBC_CMD
+    d = d.reset_index(drop=True)
+    P = range(len(d))
+    is_cur = [int(d.loc[i, "player_id"]) in current_ids for i in P]
+    pick = LpVariable.dicts("pk", P, cat=LpBinary)
+    start = LpVariable.dicts("st", P, cat=LpBinary)
+    paid = LpVariable("paid", lowBound=0, cat="Integer")
+    prob = LpProblem("step", LpMaximize)
+    prob += lpSum(start[i] * float(d.loc[i, rem_col]) for i in P) - 4 * paid
+    prob += lpSum(pick[i] for i in P) == 15
+    prob += lpSum(pick[i] * float(d.loc[i, "price"]) for i in P) <= budget_cap + 1e-6
+    for pos in VALID_POS:
+        idx = [i for i in P if d.loc[i, "position"] == pos]
+        prob += lpSum(pick[i] for i in idx) == SQUAD_NEED[pos]
+        prob += lpSum(start[i] for i in idx) >= XI_MIN[pos]
+        prob += lpSum(start[i] for i in idx) <= XI_MAX[pos]
+    for club in d["team_name"].dropna().unique():
+        idx = [i for i in P if d.loc[i, "team_name"] == club]
+        prob += lpSum(pick[i] for i in idx) <= 3
+    for i in P:
+        prob += start[i] <= pick[i]
+    prob += lpSum(start[i] for i in P) == 11
+    transfers = lpSum(pick[i] for i in P if not is_cur[i])
+    prob += paid >= transfers - ft
+    prob += paid <= max_paid
+    prob.solve(PULP_CBC_CMD(msg=0))
+    d = d.copy()
+    d["in_squad"] = [int(value(pick[i]) or 0) for i in P]
+    final = d[d["in_squad"] == 1]
+    final_ids = set(final["player_id"].astype(int))
+    _, hold_rem, _ = _pick_xi(d[d["player_id"].isin(current_ids)].copy(), rem_col)
+    _, new_rem, _ = _pick_xi(final.copy(), rem_col)
+    _, gw_pts, _ = _pick_xi(final.copy(), thisgw_col)
+
+    def _fp(row):
+        return {"web_name": row["web_name"], "position": row["position"], "price": round(float(row["price"]), 1)}
+    outs = d[d["player_id"].isin(current_ids) & (d["in_squad"] == 0)].sort_values(["position", rem_col])
+    ins = final[~final["player_id"].isin(current_ids)].sort_values(["position", rem_col], ascending=[True, False])
+    o, i = [_fp(r) for _, r in outs.iterrows()], [_fp(r) for _, r in ins.iterrows()]
+    moves = [{"out": o[k], "in": i[k]} for k in range(min(len(o), len(i)))]
+    return {"final_ids": final_ids, "moves": moves, "obj_gain": round(new_rem - hold_rem, 2),
+            "gw_points": round(gw_pts, 2)}
+
+
+def _sequential_plan(base, gws, current_ids, bank, ft, max_paid, thr, name, pool_cap=180):
+    pricemap = dict(zip(base["player_id"].astype(int), base["price"]))
+    squad = set(int(x) for x in current_ids)
+    ft_cur, bankv = int(ft), float(bank)
+    total_pts, total_hit, rows = 0.0, 0, []
+    n = len(gws)
+    for k in range(n):
+        base = base.copy()
+        base["_rem"] = base[[f"g{j}" for j in range(k, n)]].sum(axis=1)
+        budget_cap = round(bankv + sum(pricemap.get(i, 0.0) for i in squad), 1)
+        cur = base[base["player_id"].isin(squad)]
+        rest = base[~base["player_id"].isin(squad)].sort_values("_rem", ascending=False).head(pool_cap)
+        d = pd.concat([cur, rest], ignore_index=True).drop_duplicates("player_id").reset_index(drop=True)
+        res = _optimize_transfers(d, squad, budget_cap, ft_cur, max_paid, "_rem", f"g{k}")
+        moves = res["moves"]
+        # Patient/Balanced gate: skip small-gain moves so free transfers are rolled.
+        if thr > 0 and moves and res["obj_gain"] < thr * len(moves):
+            _, gw_hold, _ = _pick_xi(base[base["player_id"].isin(squad)].copy(), f"g{k}")
+            moves, res = [], {"final_ids": squad, "gw_points": round(gw_hold, 2)}
+        transfers = len(moves)
+        free_used = min(transfers, ft_cur)
+        paid = max(0, transfers - free_used)
+        squad = set(int(x) for x in res["final_ids"])
+        bankv = round(budget_cap - sum(pricemap.get(i, 0.0) for i in squad), 1)
+        ft_cur = min(5, (ft_cur - free_used) + 1)
+        total_pts += res["gw_points"]
+        total_hit += paid * 4
+        rows.append({"gw": int(gws[k]), "moves": moves, "hit": paid * 4,
+                     "points": round(res["gw_points"], 1),
+                     "rolled": bool(transfers == 0)})
+    return {"name": name, "points": round(total_pts, 1), "hits": total_hit,
+            "net": round(total_pts - total_hit, 1), "gws": rows}
+
+
+def plan_team(state, entry_id, weeks=3, ft=1):
+    """Three multi-gameweek transfer strategies (Patient / Balanced / Aggressive)."""
+    imp = import_team(state, entry_id, horizon_n=weeks)
+    current_ids = {int(p["player_id"]) for p in imp["squad"]}
+    gws, players = state.forecast(n=weeks)
+    if not gws:
+        raise ValueError("No upcoming fixtures to plan over yet.")
+    base = pd.DataFrame(players)
+    for k in range(len(gws)):
+        base[f"g{k}"] = base["gw_points"].map(lambda L, k=k: float(L[k]) if k < len(L) else 0.0)
+    have = set(base["player_id"].astype(int))
+    missing = [p for p in imp["squad"] if int(p["player_id"]) not in have]
+    if missing:
+        add = pd.DataFrame([{**{"player_id": m["player_id"], "web_name": m["web_name"],
+                              "team_name": m["team_name"], "position": m["position"], "price": m["price"]},
+                             **{f"g{k}": 0.0 for k in range(len(gws))}} for m in missing])
+        base = pd.concat([base, add], ignore_index=True)
+    base["player_id"] = base["player_id"].astype(int)
+    ft = max(0, min(5, int(ft)))
+    # (name, max_paid_transfers_per_gw, min remaining-points gain per move to bother)
+    strategies = [("Patient", 0, 2.0), ("Balanced", 1, 0.0), ("Aggressive", 2, 0.0)]
+    plans = [_sequential_plan(base, gws, current_ids, float(imp["bank"]), ft, mp, thr, nm)
+             for nm, mp, thr in strategies]
+    return {"weeks": len(gws), "gws": [int(g) for g in gws], "free_transfers": ft,
+            "manager": imp["manager"], "team_name_entry": imp["team_name_entry"], "plans": plans}
 
 
 # --------------------------------------------------------------------------- #

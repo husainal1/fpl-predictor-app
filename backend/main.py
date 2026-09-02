@@ -188,6 +188,43 @@ def solve(entry_id: int, ft: int = 1, hit_budget: int = 0):
     return data
 
 
+@app.get("/api/chip/{entry_id}")
+def chip(entry_id: int, chip: str = "wildcard"):
+    st = engine.get_state()
+    try:
+        data = st.chip_team(entry_id, chip=chip)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(404, "Couldn't build that chip team.")
+    data["squad"] = _add_crest(data["squad"])
+    if data.get("captain"):
+        _add_crest([data["captain"]])
+    return data
+
+
+_PLAN_CACHE = {}
+
+
+@app.get("/api/plan/{entry_id}")
+def plan(entry_id: int, weeks: int = 3, ft: int = 1):
+    import time as _t
+    weeks = max(1, min(6, weeks))
+    key = (entry_id, weeks, ft)
+    hit = _PLAN_CACHE.get(key)
+    if hit and (_t.time() - hit[0]) < 1800:
+        return hit[1]
+    st = engine.get_state()
+    try:
+        data = st.plan(entry_id, weeks=weeks, ft=ft)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(404, "Couldn't build a plan for that team.")
+    _PLAN_CACHE[key] = (_t.time(), data)
+    return data
+
+
 _STATS_CACHE = {"at": 0.0, "data": None}
 
 
