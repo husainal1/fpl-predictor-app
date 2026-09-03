@@ -72,6 +72,24 @@ CACHE_TTL_SECONDS = int(os.environ.get("FPL_CACHE_TTL", 6 * 60 * 60))  # 6h
 # LOADS it and only does (deterministic) inference, so it reproduces the notebook's
 # numbers exactly instead of training its own model. Falls back to training if absent.
 MODEL_FILE = os.environ.get("FPL_MODEL_FILE", os.path.join(os.path.dirname(__file__), "fpl_model.json"))
+# Two-stage model: expected points = P(start) * E[points | start]. Trained and shipped
+# from the notebook as two JSONs. Preferred over the legacy single MODEL_FILE when both
+# are present (better early-season accuracy: it separates "will he play" from "how good").
+START_MODEL_FILE = os.environ.get("FPL_START_MODEL_FILE", os.path.join(os.path.dirname(__file__), "fpl_start_model.json"))
+PTS_MODEL_FILE = os.environ.get("FPL_PTS_MODEL_FILE", os.path.join(os.path.dirname(__file__), "fpl_pts_start_model.json"))
+
+
+class TwoStageModel:
+    """P(start) * E[points | start]. Exposes .predict(X) so it drops in anywhere the
+    single regressor was used (predict_gw, horizon, forecast) with no other changes."""
+
+    def __init__(self, start_model, pts_model):
+        self.start_model = start_model
+        self.pts_model = pts_model
+
+    def predict(self, Xf):
+        p = self.start_model.predict_proba(Xf)[:, 1]
+        return p * self.pts_model.predict(Xf)
 
 
 # --------------------------------------------------------------------------- #
@@ -827,6 +845,14 @@ def predict_gw(players_now, fixtures, team_name_now, team_strength, recent, mode
     if damp:
         pf["pred_points"] = [pp * _avail_mult(chances.get(pid), statuses.get(pid, "a"))
                              for pp, pid in zip(pf["pred_points"], pf["player_id"])]
+    # Set-piece / penalty bump for nailed takers, from FPL's live order data. Only
+    # credited to players already projected to feature (>1.5), so fringe names on a
+    # pen list don't get inflated.
+    if "sp_bump" in players_now.columns:
+        bmap = dict(zip(players_now["player_id"],
+                        pd.to_numeric(players_now["sp_bump"], errors="coerce").fillna(0.0)))
+        pf["pred_points"] = [pp + (bmap.get(pid, 0.0) if pp > 1.5 else 0.0)
+                             for pp, pid in zip(pf["pred_points"], pf["player_id"])]
     return pf
 
 
@@ -905,7 +931,7 @@ def _make_current_only_strength(cur_strength):
 def build_state(session_get=get_json) -> EngineState:
     from sklearn.model_selection import GroupKFold
     from sklearn.metrics import mean_absolute_error
-    from xgboost import XGBRegressor
+    from xgboost import XGBRegressor, XGBClassifier
 
     elements, teams_raw, events, fixtures = fetch_current(session_get)
 
@@ -948,6 +974,28 @@ def build_state(session_get=get_json) -> EngineState:
     # since those players still play; their minutes risk is handled by damping.
     players_now = players_now[players_now["status"] != "u"].copy()
     players_now["name_key"] = players_now["full_name"].map(norm_name)
+
+    # Per-player set-piece / penalty bump from FPL's live order data (Experiment 3).
+    def _sp_col(name):
+        return pd.to_numeric(elements[name], errors="coerce") if name in elements.columns \
+            else pd.Series([np.nan] * len(elements))
+
+    def _sp_bump(pen, dfk, ck):
+        b = 0.0
+        if pen == 1:
+            b += 0.20
+        elif pen == 2:
+            b += 0.12
+        if dfk == 1:
+            b += 0.08
+        if ck == 1:
+            b += 0.06
+        return b
+
+    _bump_by_id = {int(i): _sp_bump(pn, df, c) for i, pn, df, c in zip(
+        elements["id"], _sp_col("penalties_order"),
+        _sp_col("direct_freekicks_order"), _sp_col("corners_and_indirect_freekicks_order"))}
+    players_now["sp_bump"] = players_now["player_id"].map(_bump_by_id).fillna(0.0)
 
     # opponent id -> name per season, from the archive master list
     mtl = pd.read_csv(f"{ARCHIVE}/master_team_list.csv")
@@ -998,10 +1046,22 @@ def build_state(session_get=get_json) -> EngineState:
     y = train["y"].astype(float)
     baseline = train["total_points_roll3_mean"].fillna(train["total_points_lag1"]).fillna(0)
 
-    if os.path.exists(MODEL_FILE):
-        # Serve the exact model trained in the notebook. Inference is deterministic,
-        # so predictions match the notebook to the decimal, and the build is much
-        # lighter/faster because it skips training entirely.
+    if os.path.exists(START_MODEL_FILE) and os.path.exists(PTS_MODEL_FILE):
+        # Two-stage model trained in the notebook: expected = P(start) * E[points|start].
+        # Deterministic inference that reproduces the notebook exactly.
+        sm = XGBClassifier()
+        sm.load_model(START_MODEL_FILE)
+        pm = XGBRegressor()
+        pm.load_model(PTS_MODEL_FILE)
+        model = TwoStageModel(sm, pm)
+        metrics = {
+            "rows": int(len(train)),
+            "model_mae": float(mean_absolute_error(y, model.predict(X))),
+            "baseline_mae": float(mean_absolute_error(y, baseline)),
+            "source": "loaded-2stage",
+        }
+    elif os.path.exists(MODEL_FILE):
+        # Legacy single model (backward compatible).
         model = XGBRegressor()
         model.load_model(MODEL_FILE)
         metrics = {
