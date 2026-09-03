@@ -88,7 +88,9 @@ class TwoStageModel:
         self.pts_model = pts_model
 
     def predict(self, Xf):
-        p = self.start_model.predict_proba(Xf)[:, 1]
+        # start_model is a REGRESSOR on the 0/1 "started" label (round-trips through
+        # save/load cleanly, unlike a classifier's predict_proba). Clip to a probability.
+        p = np.clip(self.start_model.predict(Xf), 0.0, 1.0)
         return p * self.pts_model.predict(Xf)
 
 
@@ -1048,8 +1050,9 @@ def build_state(session_get=get_json) -> EngineState:
 
     if os.path.exists(START_MODEL_FILE) and os.path.exists(PTS_MODEL_FILE):
         # Two-stage model trained in the notebook: expected = P(start) * E[points|start].
-        # Deterministic inference that reproduces the notebook exactly.
-        sm = XGBClassifier()
+        # Both are REGRESSORS (start regresses the 0/1 started label) so they reload
+        # deterministically and reproduce the notebook exactly.
+        sm = XGBRegressor()
         sm.load_model(START_MODEL_FILE)
         pm = XGBRegressor()
         pm.load_model(PTS_MODEL_FILE)
