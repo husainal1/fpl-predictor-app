@@ -247,6 +247,10 @@ class EngineState:
     recent: pd.DataFrame
     model: object
     metrics: dict = field(default_factory=dict)
+    # Rich season-to-date stats per player (from the FPL bootstrap), and a team
+    # id -> {name, short} map, both used to build the player-profile view.
+    element_by_id: dict = field(default_factory=dict)
+    team_meta: dict = field(default_factory=dict)
 
     # ---- served computations ------------------------------------------------
     def _team_strength(self, team):
@@ -1110,11 +1114,18 @@ def build_state(session_get=get_json) -> EngineState:
     pred["owned_pct"] = pred["player_id"].map(own).fillna(0.0)
     pred = pred.sort_values("pred_points", ascending=False).reset_index(drop=True)
 
+    # Rich per-player season-to-date stats (for the player-profile view) and a team
+    # id -> {name, short} map for rendering opponents in game logs and fixtures.
+    element_by_id = _build_element_stats(elements)
+    team_meta = {int(r["id"]): {"name": r["name"], "short": r.get("short_name", r["name"])}
+                 for _, r in teams_raw.iterrows()}
+
     return EngineState(
         built_at=time.time(), next_gw=next_gw, season_started=season_started,
         predictions=pred, players_now=players_now, fixtures=fixtures,
         team_name_now=team_name_now, cur_strength=cur_strength, recent=recent,
         model=model, metrics=metrics,
+        element_by_id=element_by_id, team_meta=team_meta,
     )
 
 
@@ -1145,6 +1156,180 @@ def get_state(force_refresh=False) -> EngineState:
     except Exception:  # noqa: BLE001
         pass
     return _STATE
+
+
+# --------------------------------------------------------------------------- #
+# Player profile (season-to-date stats + game log + fixtures)
+# --------------------------------------------------------------------------- #
+# Curated season-total columns pulled from the FPL bootstrap element record.
+_PROFILE_ELEMENT_COLS = [
+    "total_points", "minutes", "goals_scored", "assists", "clean_sheets",
+    "goals_conceded", "own_goals", "penalties_saved", "penalties_missed",
+    "yellow_cards", "red_cards", "saves", "bonus", "bps", "starts",
+    "form", "points_per_game", "value_form", "value_season", "ep_next", "ep_this",
+    "selected_by_percent", "now_cost", "cost_change_start", "cost_change_event",
+    "transfers_in_event", "transfers_out_event",
+    "expected_goals", "expected_assists", "expected_goal_involvements",
+    "expected_goals_conceded", "influence", "creativity", "threat", "ict_index",
+    "status", "news", "news_added", "chance_of_playing_next_round",
+    "penalties_order", "direct_freekicks_order", "corners_and_indirect_freekicks_order",
+    "team_code",
+]
+
+
+def _num(v):
+    """Coerce to a JSON-safe number (float or int), else None."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if np.isnan(f):
+        return None
+    return int(f) if f == int(f) else round(f, 2)
+
+
+def _build_element_stats(elements: pd.DataFrame) -> dict:
+    """pid -> curated dict of season-to-date stats from the FPL bootstrap."""
+    out = {}
+    cols = [c for c in _PROFILE_ELEMENT_COLS if c in elements.columns]
+    for _, e in elements.iterrows():
+        rec = {}
+        for c in cols:
+            v = e[c]
+            if c in ("status", "news", "news_added"):
+                rec[c] = None if (v is None or (isinstance(v, float) and pd.isna(v))) else v
+            else:
+                rec[c] = _num(v)
+        out[int(e["id"])] = rec
+    return out
+
+
+# element-summary responses are stable within a gameweek; cache briefly so a
+# burst of profile opens doesn't hammer the FPL API.
+_SUMMARY_CACHE: dict = {}
+_SUMMARY_TTL = 1800  # 30 minutes
+
+
+def element_summary(pid, session_get=get_json) -> dict:
+    pid = int(pid)
+    now = time.time()
+    hit = _SUMMARY_CACHE.get(pid)
+    if hit and (now - hit[0]) < _SUMMARY_TTL:
+        return hit[1]
+    try:
+        j = session_get(f"{BASE}/element-summary/{pid}/")
+    except Exception:  # noqa: BLE001 - never let a profile fail on the summary call
+        j = {"history": [], "fixtures": [], "history_past": []}
+    _SUMMARY_CACHE[pid] = (now, j)
+    return j
+
+
+def player_profile(state: "EngineState", pid, session_get=get_json) -> Optional[dict]:
+    """Full profile: header, season totals, per-GW game log, upcoming fixtures,
+    past-season history, and the model's projection for the next gameweek."""
+    pid = int(pid)
+    tm = getattr(state, "team_meta", {}) or {}
+    stats = (getattr(state, "element_by_id", {}) or {}).get(pid)
+    proj_row = state.player(pid)
+
+    # Header: prefer the live prediction row (name/team/price/ownership), fall
+    # back to players_now if the player has no fixture in the next GW.
+    hdr = {}
+    if proj_row is not None:
+        hdr = {k: proj_row.get(k) for k in
+               ("web_name", "team_name", "position", "price", "owned_pct")}
+    else:
+        pn = state.players_now
+        row = pn[pn["player_id"] == pid]
+        if not row.empty:
+            r = row.iloc[0]
+            hdr = {"web_name": r["web_name"], "team_name": r["team_name"],
+                   "position": r["position"], "price": _num(r["price"]),
+                   "owned_pct": _num(r["owned_pct"])}
+    if not hdr and stats is None:
+        return None
+
+    # Kit / crest imagery for the header (keyed by the club's FPL team code).
+    tcode = (stats or {}).get("team_code")
+    if tcode is not None:
+        hdr["team_code"] = int(tcode)
+        hdr["crest"] = f"https://resources.premierleague.com/premierleague/badges/50/t{int(tcode)}.png"
+
+    summ = element_summary(pid, session_get)
+
+    def _opp_short(tid):
+        return (tm.get(int(tid)) or {}).get("short", "?") if tid is not None else "?"
+
+    log = []
+    for h in summ.get("history", []):
+        log.append({
+            "gw": h.get("round"),
+            "opp": _opp_short(h.get("opponent_team")),
+            "home": bool(h.get("was_home")),
+            "pts": _num(h.get("total_points")),
+            "min": _num(h.get("minutes")),
+            "goals": _num(h.get("goals_scored")),
+            "assists": _num(h.get("assists")),
+            "cs": _num(h.get("clean_sheets")),
+            "bonus": _num(h.get("bonus")),
+            "bps": _num(h.get("bps")),
+            "xg": _num(h.get("expected_goals")),
+            "xa": _num(h.get("expected_assists")),
+            "started": bool(h.get("starts")),
+        })
+
+    upcoming = []
+    for f in summ.get("fixtures", [])[:6]:
+        home = bool(f.get("is_home"))
+        opp_id = f.get("team_a") if home else f.get("team_h")
+        upcoming.append({
+            "gw": f.get("event"),
+            "opp": _opp_short(opp_id),
+            "home": home,
+            "difficulty": _num(f.get("difficulty")),
+        })
+
+    past = []
+    for s in summ.get("history_past", []):
+        past.append({
+            "season": s.get("season_name"),
+            "points": _num(s.get("total_points")),
+            "minutes": _num(s.get("minutes")),
+            "goals": _num(s.get("goals_scored")),
+            "assists": _num(s.get("assists")),
+            "cs": _num(s.get("clean_sheets")),
+            "bonus": _num(s.get("bonus")),
+            "xg": _num(s.get("expected_goals")),
+            "xa": _num(s.get("expected_assists")),
+        })
+
+    projection = None
+    if proj_row is not None:
+        projection = {
+            "next_gw": state.next_gw,
+            "pred_points": _num(proj_row.get("pred_points")),
+            "opp": proj_row.get("opp_name"),
+            "home": bool(proj_row.get("is_home")),
+        }
+
+    # A tidy "form last 5" summary from the game log.
+    last5 = log[-5:]
+    form_pts = [x["pts"] for x in last5 if x["pts"] is not None]
+
+    return {
+        "player_id": pid,
+        "header": hdr,
+        "status": (stats or {}).get("status"),
+        "news": (stats or {}).get("news"),
+        "chance_of_playing": (stats or {}).get("chance_of_playing_next_round"),
+        "season": stats or {},
+        "form_last5_points": form_pts,
+        "games_played": len(log),
+        "log": log,
+        "upcoming": upcoming,
+        "past_seasons": past,
+        "projection": projection,
+    }
 
 
 if __name__ == "__main__":

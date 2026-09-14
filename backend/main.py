@@ -324,6 +324,15 @@ def player(pid: int):
             for k, v in p.items() if not isinstance(v, (list, dict))}
 
 
+@app.get("/api/player/{pid}/profile")
+def player_profile(pid: int):
+    st = engine.get_state()
+    prof = engine.player_profile(st, pid)
+    if prof is None:
+        raise HTTPException(404, "player not found")
+    return prof
+
+
 @app.post("/api/player/{pid}/explain")
 def explain(pid: int, request: Request, response: Response):
     st = engine.get_state()
