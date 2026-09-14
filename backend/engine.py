@@ -1171,6 +1171,8 @@ _PROFILE_ELEMENT_COLS = [
     "transfers_in_event", "transfers_out_event",
     "expected_goals", "expected_assists", "expected_goal_involvements",
     "expected_goals_conceded", "influence", "creativity", "threat", "ict_index",
+    "defensive_contribution", "recoveries", "tackles",
+    "clearances_blocks_interceptions",
     "status", "news", "news_added", "chance_of_playing_next_round",
     "penalties_order", "direct_freekicks_order", "corners_and_indirect_freekicks_order",
     "team_code",
@@ -1275,6 +1277,7 @@ def player_profile(state: "EngineState", pid, session_get=get_json) -> Optional[
             "bps": _num(h.get("bps")),
             "xg": _num(h.get("expected_goals")),
             "xa": _num(h.get("expected_assists")),
+            "defcon": _num(h.get("defensive_contribution")),
             "started": bool(h.get("starts")),
         })
 
@@ -1303,13 +1306,59 @@ def player_profile(state: "EngineState", pid, session_get=get_json) -> Optional[
             "xa": _num(s.get("expected_assists")),
         })
 
+    st = stats or {}
+
+    # Set-piece and penalty duty (order 1 = first-choice taker).
+    def _order(k):
+        v = st.get(k)
+        return int(v) if isinstance(v, (int, float)) and not pd.isna(v) else None
+    set_pieces = {
+        "pens": _order("penalties_order"),
+        "fk": _order("direct_freekicks_order"),
+        "corners": _order("corners_and_indirect_freekicks_order"),
+    }
+
+    # Price and transfer momentum for this gameweek.
+    ti, to = st.get("transfers_in_event"), st.get("transfers_out_event")
+    price = {
+        "now": _num(st.get("now_cost")) if st.get("now_cost") is None else round(st.get("now_cost") / 10.0, 1),
+        "change_event": round((st.get("cost_change_event") or 0) / 10.0, 1),
+        "change_start": round((st.get("cost_change_start") or 0) / 10.0, 1),
+        "transfers_in": _num(ti),
+        "transfers_out": _num(to),
+        "net_transfers": (int(ti) - int(to)) if (ti is not None and to is not None) else None,
+    }
+
+    # Per-90 rates, so players on different minutes compare fairly.
+    mins = st.get("minutes") or 0
+    def _p90(k):
+        try:
+            v = float(st.get(k))
+        except (TypeError, ValueError):
+            return None
+        return round(v / (mins / 90.0), 2) if mins and mins >= 90 else None
+    per90 = {
+        "xg": _p90("expected_goals"),
+        "xa": _p90("expected_assists"),
+        "xgi": _p90("expected_goal_involvements"),
+        "defcon": _p90("defensive_contribution"),
+    }
+
+    # Value: points per million spent.
+    price_now = hdr.get("price")
+    total_pts = st.get("total_points")
+    value = round(total_pts / price_now, 2) if (price_now and total_pts is not None) else None
+
     projection = None
     if proj_row is not None:
+        opp_name = proj_row.get("opp_name")
+        opp_def_z = (state.cur_strength or {}).get(opp_name, (0.0, 0.0))[1]
         projection = {
             "next_gw": state.next_gw,
             "pred_points": _num(proj_row.get("pred_points")),
-            "opp": proj_row.get("opp_name"),
+            "opp": opp_name,
             "home": bool(proj_row.get("is_home")),
+            "opp_def_z": round(float(opp_def_z), 2),
         }
 
     # A tidy "form last 5" summary from the game log.
@@ -1319,10 +1368,14 @@ def player_profile(state: "EngineState", pid, session_get=get_json) -> Optional[
     return {
         "player_id": pid,
         "header": hdr,
-        "status": (stats or {}).get("status"),
-        "news": (stats or {}).get("news"),
-        "chance_of_playing": (stats or {}).get("chance_of_playing_next_round"),
-        "season": stats or {},
+        "status": st.get("status"),
+        "news": st.get("news"),
+        "chance_of_playing": st.get("chance_of_playing_next_round"),
+        "season": st,
+        "set_pieces": set_pieces,
+        "price": price,
+        "per90": per90,
+        "value": value,
         "form_last5_points": form_pts,
         "games_played": len(log),
         "log": log,

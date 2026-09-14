@@ -136,6 +136,136 @@ def explain_reckoning(rec: dict) -> dict:
         return {"text": _reckoning_fallback(rec), "source": "fallback"}
 
 
+def _profile_facts(prof: dict) -> str:
+    h = prof.get("header", {}) or {}
+    s = prof.get("season", {}) or {}
+    proj = prof.get("projection") or {}
+    pos = h.get("position", "?")
+
+    def g(d, k, default="n/a"):
+        v = d.get(k)
+        return default if v is None else v
+
+    lines = [
+        f"Name: {g(h, 'web_name')}",
+        f"Position: {pos}",
+        f"Club: {g(h, 'team_name')}",
+        f"Price: {g(h, 'price')}m",
+        f"Ownership: {g(h, 'owned_pct')}%",
+        f"Availability: status={prof.get('status', '?')}, news={prof.get('news') or 'none'}",
+        f"Games played this season: {prof.get('games_played', 0)} (starts: {g(s, 'starts')})",
+        f"Points this season: {g(s, 'total_points')} (per game: {g(s, 'points_per_game')}, form: {g(s, 'form')})",
+        f"Minutes: {g(s, 'minutes')}",
+        f"Goals: {g(s, 'goals_scored')}, Assists: {g(s, 'assists')}",
+        f"Expected: xG {g(s, 'expected_goals')}, xA {g(s, 'expected_assists')}, xGI {g(s, 'expected_goal_involvements')}",
+        f"Defensive contribution (DefCon) total: {g(s, 'defensive_contribution')}",
+        f"Clean sheets: {g(s, 'clean_sheets')}, xG conceded: {g(s, 'expected_goals_conceded')}",
+        f"Bonus: {g(s, 'bonus')}, ICT index: {g(s, 'ict_index')}",
+        f"Recent points (last games, oldest to newest): {prof.get('form_last5_points') or 'n/a'}",
+    ]
+
+    # Per-90 rates (fair comparison across differing minutes).
+    p90 = prof.get("per90") or {}
+    if any(v is not None for v in p90.values()):
+        lines.append(f"Per 90: xG {g(p90, 'xg')}, xA {g(p90, 'xa')}, "
+                     f"xGI {g(p90, 'xgi')}, DefCon {g(p90, 'defcon')}")
+
+    # Value.
+    if prof.get("value") is not None:
+        lines.append(f"Value: {prof.get('value')} points per million")
+
+    # Set-piece and penalty duty (order 1 = first-choice taker).
+    sp = prof.get("set_pieces") or {}
+    roles = []
+    if sp.get("pens") == 1:
+        roles.append("first-choice penalty taker")
+    elif sp.get("pens") == 2:
+        roles.append("second penalty taker")
+    if sp.get("fk") == 1:
+        roles.append("takes direct free kicks")
+    if sp.get("corners") == 1:
+        roles.append("takes corners")
+    lines.append("Set-piece duty: " + (", ".join(roles) if roles else "no set-piece duty"))
+
+    # Price and transfer momentum.
+    pr = prof.get("price") or {}
+    if pr:
+        ce = pr.get("change_event")
+        move = "rising" if (ce or 0) > 0 else ("falling" if (ce or 0) < 0 else "steady")
+        lines.append(f"Price momentum: {move} this week (change {ce}m), "
+                     f"net transfers {pr.get('net_transfers')} this gameweek")
+
+    if proj:
+        opp = proj.get("opp")
+        where = "home" if proj.get("home") else "away"
+        z = proj.get("opp_def_z")
+        if z is None:
+            strength = ""
+        elif z >= 0.6:
+            strength = ", a strong defence"
+        elif z <= -0.6:
+            strength = ", a weak defence"
+        else:
+            strength = ", an average defence"
+        lines.append(f"Model projection next gameweek (GW{proj.get('next_gw')}): "
+                     f"{proj.get('pred_points')} points vs {opp} ({where}{strength})")
+    fx = prof.get("upcoming") or []
+    if fx:
+        runs = ", ".join(f"GW{f.get('gw')} {f.get('opp')} "
+                         f"({'H' if f.get('home') else 'A'}, FDR {f.get('difficulty')})"
+                         for f in fx[:5])
+        lines.append(f"Upcoming fixtures (with difficulty 1 easy to 5 hard): {runs}")
+    return "\n".join(lines)
+
+
+def explain_profile(prof: dict) -> dict:
+    """A richer, analyst-style read on a single player for the profile view.
+
+    Covers form and underlying numbers, minutes/role security, the fixture run,
+    value and defensive contribution, plus one genuine risk. Falls back to a
+    templated note with no API key. Returns {'text': str, 'source': ...}."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        return {"text": _fallback(
+            {**prof.get("header", {}),
+             "pred_points": (prof.get("projection") or {}).get("pred_points", 0),
+             "is_home": (prof.get("projection") or {}).get("home", 0)},
+            "detailed"), "source": "fallback"}
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        prompt = (
+            "You are LokiFPL's analyst, writing for a Fantasy Premier League manager who is smart "
+            "but not a stats expert and is deciding whether to buy, hold, captain or avoid this "
+            "player. Using ONLY the facts below, write a tight 5 to 6 sentence read that TEACHES "
+            "the numbers as you reason, so the reader understands WHY each stat matters. Keep it "
+            "concise: cover only what actually changes the decision, no filler. Priorities:\n"
+            "- Compare xG and xA to his actual goals and assists to flag overperformance (may cool "
+            "off) or underperformance (may be due).\n"
+            "- Use the ICT index as a plain-English gauge of how involved he is in his team's "
+            "attack, and say if it is high or low for his position.\n"
+            "- If he has set-piece or penalty duty, say so early, because it raises his ceiling; if "
+            "he has none, do not dwell on it.\n"
+            "- Use defensive contribution (DefCon) to describe his points floor, especially for "
+            "defenders and midfielders.\n"
+            "- Judge minutes and starts for game-time security, and read the fixture run (difficulty "
+            "1 easy to 5 hard), including how strong the next opponent's defence is.\n"
+            "- If the price is clearly rising or falling this week, mention it as a timing nudge.\n"
+            "- Use price, value (points per million) and ownership to frame him as essential, a "
+            "solid pick, or a differential.\n"
+            "End with a clear verdict (buy, hold, captain option, or avoid) and the single biggest "
+            "risk. Be decisive, quote the key numbers, and do not invent stats not given. Do not "
+            "use em dashes.\n\n" + _profile_facts(prof)
+        )
+        msg = client.messages.create(model=MODEL, max_tokens=440,
+                                     messages=[{"role": "user", "content": prompt}])
+        text = "".join(getattr(b, "text", "") for b in msg.content).strip()
+        return {"text": text or _fallback(prof.get("header", {}), "detailed"), "source": "claude"}
+    except Exception as e:  # noqa: BLE001
+        print("LLM_ERROR", type(e).__name__, str(e)[:300], flush=True)
+        return {"text": _fallback(prof.get("header", {}), "detailed"), "source": "fallback"}
+
+
 def explain(player: dict, variant: str = "concise") -> dict:
     """Return {'text': str, 'variant': str, 'source': 'claude'|'fallback'}."""
     key = os.environ.get("ANTHROPIC_API_KEY")

@@ -9,6 +9,7 @@ Run locally:   uvicorn main:app --reload
 Docs:          http://localhost:8000/docs
 """
 import os
+import time
 import uuid
 
 import numpy as np
@@ -324,6 +325,20 @@ def player(pid: int):
             for k, v in p.items() if not isinstance(v, (list, dict))}
 
 
+_INSIGHT_CACHE: dict = {}          # pid -> (ts, text)
+_INSIGHT_TTL = 1800                # 30 minutes
+
+
+def _profile_insight(pid: int, prof: dict) -> str:
+    now = time.time()
+    hit = _INSIGHT_CACHE.get(pid)
+    if hit and (now - hit[0]) < _INSIGHT_TTL:
+        return hit[1]
+    text = llm.explain_profile(prof).get("text", "")
+    _INSIGHT_CACHE[pid] = (now, text)
+    return text
+
+
 @app.get("/api/player/{pid}/profile")
 def player_profile(pid: int):
     st = engine.get_state()
@@ -331,6 +346,17 @@ def player_profile(pid: int):
     if prof is None:
         raise HTTPException(404, "player not found")
     return prof
+
+
+@app.get("/api/player/{pid}/insight")
+def player_insight(pid: int):
+    """The richer, analyst-style AI take for the profile view (cached per player)."""
+    st = engine.get_state()
+    prof = engine.player_profile(st, pid)
+    if prof is None:
+        raise HTTPException(404, "player not found")
+    return {"player_id": pid, "web_name": (prof.get("header") or {}).get("web_name"),
+            "text": _profile_insight(pid, prof)}
 
 
 @app.post("/api/player/{pid}/explain")
