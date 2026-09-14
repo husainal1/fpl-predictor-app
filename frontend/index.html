@@ -226,6 +226,65 @@
   .pg-hit{color:#ff8b8b;font-size:11px;margin-left:4px}
   .pg-pts{font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
   .plan-tag{font-size:10px;color:#2a2205;background:var(--gold);border-radius:4px;padding:1px 5px;font-weight:800;margin-left:6px}
+
+  /* clickable player rows/names -> profile */
+  tr.prow-lnk{cursor:pointer}
+  tr.prow-lnk:hover{background:color-mix(in srgb,var(--gold) 9%,transparent)}
+  .pnm.lnk,.nmlnk{cursor:pointer}
+  .pnm.lnk:hover,.nmlnk:hover{color:var(--gold);text-decoration:underline;text-decoration-color:var(--gold)}
+
+  /* -------- player profile overlay -------- */
+  .pmodal{position:fixed;inset:0;z-index:1000;display:none;background:rgba(4,7,5,.66);backdrop-filter:blur(3px);padding:26px 14px;overflow-y:auto}
+  .pmodal.open{display:block}
+  .pmcard{max-width:860px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.5);position:relative;padding:0;overflow:hidden}
+  .pmx{position:absolute;top:12px;right:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--soft);color:var(--txt);font-size:20px;line-height:1;cursor:pointer}
+  .pmx:hover{border-color:var(--gold);color:var(--gold)}
+  .pmload{padding:60px 20px;text-align:center;color:var(--mut)}
+  .pmhead{display:flex;align-items:center;gap:16px;padding:22px 22px 18px;background:linear-gradient(160deg,color-mix(in srgb,var(--gold) 12%,var(--card)),var(--card) 62%);border-bottom:1px solid var(--line)}
+  .pmhead img.pmkit{width:52px;height:62px;object-fit:contain;flex:none}
+  .pmhname{font-size:23px;font-weight:800;letter-spacing:.2px;line-height:1.1}
+  .pmhsub{color:var(--mut);font-size:13.5px;margin-top:3px}
+  .pmhsub b{color:var(--txt)}
+  .pmflag{display:inline-block;margin-top:7px;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid}
+  .pmflag.ok{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+  .pmflag.warn{color:#ffcf6b;border-color:#7a5a12}
+  .pmflag.out{color:#ff8b8b;border-color:#7a2020}
+  .pmproj{margin-left:auto;text-align:right;flex:none}
+  .pmproj .n{font-size:30px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1}
+  .pmproj .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-top:3px}
+  .pmsect{padding:16px 22px;border-bottom:1px solid var(--line)}
+  .pmsect h4{margin:0 0 11px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--mut);font-weight:700}
+  .pmai{line-height:1.5;font-size:14.5px}
+  .pmai .who{color:var(--gold);font-weight:700}
+  .pmcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:9px}
+  .pmstat{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+  .pmstat .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+  .pmstat .k{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+  .pmstat.gold .v{color:var(--gold)}
+  .pmfix{display:flex;gap:7px;flex-wrap:wrap}
+  .pmfx{flex:none;width:58px;text-align:center;border-radius:9px;padding:7px 4px;border:1px solid var(--line)}
+  .pmfx .g{font-size:10px;color:var(--mut);font-weight:700}
+  .pmfx .o{font-size:13px;font-weight:800;margin-top:2px}
+  .pmfx .h{font-size:9.5px;color:var(--mut);margin-top:1px;text-transform:uppercase;letter-spacing:.4px}
+  .fdiff1{background:color-mix(in srgb,#28a745 26%,var(--card));border-color:#2f6b3a}
+  .fdiff2{background:color-mix(in srgb,#28a745 15%,var(--card));border-color:#2f6b3a}
+  .fdiff3{background:var(--soft)}
+  .fdiff4{background:color-mix(in srgb,#d64545 16%,var(--card));border-color:#7a2f2f}
+  .fdiff5{background:color-mix(in srgb,#d64545 28%,var(--card));border-color:#7a2f2f}
+  .pmlog{width:100%;border-collapse:collapse;font-size:13px}
+  .pmlog th,.pmlog td{padding:6px 7px;text-align:center;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  .pmlog th{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  .pmlog td.gw{color:var(--mut);font-weight:700}
+  .pmlog td.op{text-align:left}
+  .pmlog td.pts{font-weight:800;color:var(--gold)}
+  .pmlog tr.dnp td{color:var(--mut)}
+  .pmspark{display:flex;align-items:flex-end;gap:5px;height:46px;margin-top:2px}
+  .pmspark .b{flex:1;min-width:10px;background:var(--gold);border-radius:3px 3px 0 0;opacity:.9;position:relative}
+  .pmspark .b span{position:absolute;top:-15px;left:0;right:0;text-align:center;font-size:10px;color:var(--mut)}
+  @media(max-width:560px){
+    .pmhead{flex-wrap:wrap}.pmproj{margin-left:0;text-align:left;width:100%}
+    .pmcards{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
+  }
 </style>
 </head>
 <body>
@@ -260,6 +319,13 @@
   <div id="tabhead"></div>
   <div id="view"><div class="loading">Loading…</div></div>
 </main>
+
+<div id="pmodal" class="pmodal" aria-hidden="true" onclick="if(event.target===this)closePlayer()">
+  <div class="pmcard" role="dialog" aria-modal="true">
+    <button class="pmx" onclick="closePlayer()" aria-label="Close">&times;</button>
+    <div id="pmbody"></div>
+  </div>
+</div>
 <footer class="sitefoot">
   LokiFPL is an independent data analytics platform. It is not affiliated with, endorsed by, or connected to Marvel, Disney, or the official Premier League.
 </footer>
@@ -372,16 +438,134 @@ window.fb = async (pid, helpful, btn)=>{
   await post("/api/feedback",{player_id:pid,helpful});
   btn.closest(".fb").querySelector(".var").textContent = "thanks!";
 };
-window.explainInline = async (pid)=>{
-  const box=document.getElementById("explbox"); if(!box) return;
-  box.innerHTML=`<div class="exp muted">Thinking…</div>`;
-  const r=await post(`/api/player/${pid}/explain`,{});
-  box.innerHTML=`<div class="exp"><b>${esc(r.web_name||"")}:</b> ${esc(r.text)}
-     <div class="fb"><span>Helpful?</span>
-       <button onclick="fb(${pid},true,this)">👍</button>
-       <button onclick="fb(${pid},false,this)">👎</button>
-       <span class="var muted"></span></div></div>`;
+// Any player click now opens the full profile (which carries the AI take inside).
+window.explainInline = (pid)=>openPlayer(pid);
+
+/* ------------------------- Player profile overlay ------------------------- */
+const _fdiff = d => `fdiff${Math.min(5,Math.max(1,+d||3))}`;
+const _sv = (o,k)=> (o && o[k]!=null) ? o[k] : null;
+function _statCard(k,v,cls=""){ return `<div class="pmstat ${cls}"><div class="v">${v==null?"–":v}</div><div class="k">${k}</div></div>`; }
+
+function pmSpark(pts){
+  if(!pts||!pts.length) return "";
+  const mx=Math.max(2,...pts.map(x=>Math.abs(+x||0)));
+  const bars=pts.map(v=>`<div class="b" style="height:${Math.max(6,Math.round((+v||0)/mx*100))}%"><span>${v}</span></div>`).join("");
+  return `<div class="pmspark">${bars}</div>`;
+}
+
+function renderProfile(p, ai){
+  const h=p.header||{}, s=p.season||{}, proj=p.projection;
+  const pos=h.position||"", price=h.price!=null?`£${h.price}m`:"";
+  const own=h.owned_pct!=null?`${(+h.owned_pct).toFixed(1)}% owned`:"";
+  const kit=kitImg({team_code:h.team_code,crest:h.crest,position:pos},"pmkit");
+  // availability flag
+  let flag="";
+  const st=p.status, ch=p.chance_of_playing;
+  if(st==="a") flag=`<span class="pmflag ok">Available</span>`;
+  else if(st==="i"||st==="o") flag=`<span class="pmflag out">${esc(p.news||"Out")}</span>`;
+  else if(st==="d"||st==="s") flag=`<span class="pmflag warn">${esc(p.news|| (ch!=null?`${ch}% chance`:"Doubt"))}</span>`;
+  else if(p.news) flag=`<span class="pmflag warn">${esc(p.news)}</span>`;
+
+  const projBlock = proj ? `<div class="pmproj"><div class="n">${proj.pred_points!=null?(+proj.pred_points).toFixed(1):"–"}</div>
+     <div class="l">Proj GW${proj.next_gw}${proj.opp?` · ${proj.home?"vs":"@"} ${esc(proj.opp)}`:""}</div></div>` : "";
+
+  const head=`<div class="pmhead">${kit}
+    <div><div class="pmhname">${esc(h.web_name||"Player")}</div>
+      <div class="pmhsub"><b>${esc(pos)}</b> · ${esc(h.team_name||"")}${price?` · ${price}`:""}${own?` · ${own}`:""}</div>
+      ${flag}</div>${projBlock}</div>`;
+
+  const aiBlock = ai ? `<div class="pmsect"><h4>The AI take</h4>
+     <div class="pmai"><span class="who">${esc(h.web_name||"")}:</span> ${esc(ai)}</div></div>` : "";
+
+  // season stat cards
+  const cards=[
+    _statCard("Points", _sv(s,"total_points"), "gold"),
+    _statCard("Per game", _sv(s,"points_per_game")),
+    _statCard("Form", _sv(s,"form")),
+    _statCard("Minutes", _sv(s,"minutes")),
+    _statCard("Starts", _sv(s,"starts")),
+    _statCard("Goals", _sv(s,"goals_scored")),
+    _statCard("Assists", _sv(s,"assists")),
+    _statCard("xG", _sv(s,"expected_goals")),
+    _statCard("xA", _sv(s,"expected_assists")),
+    _statCard("xGI", _sv(s,"expected_goal_involvements")),
+    _statCard("Clean sh.", _sv(s,"clean_sheets")),
+    _statCard("Bonus", _sv(s,"bonus")),
+    _statCard("BPS", _sv(s,"bps")),
+    _statCard("ICT", _sv(s,"ict_index")),
+  ].join("");
+  const seasonBlock=`<div class="pmsect"><h4>This season${p.games_played?` · ${p.games_played} games`:""}</h4>
+     <div class="pmcards">${cards}</div>
+     ${p.form_last5_points&&p.form_last5_points.length?`<div style="margin-top:14px"><div class="pmhsub" style="margin-bottom:16px">Points, last ${p.form_last5_points.length} games</div>${pmSpark(p.form_last5_points)}</div>`:""}</div>`;
+
+  // upcoming fixtures
+  const fx=(p.upcoming||[]).map(f=>`<div class="pmfx ${_fdiff(f.difficulty)}">
+     <div class="g">GW${f.gw}</div><div class="o">${esc(f.opp)}</div><div class="h">${f.home?"H":"A"}</div></div>`).join("");
+  const fixBlock=fx?`<div class="pmsect"><h4>Next fixtures</h4><div class="pmfix">${fx}</div></div>`:"";
+
+  // game log (most recent first, cap 8)
+  const log=(p.log||[]).slice().reverse().slice(0,8);
+  let logBlock="";
+  if(log.length){
+    const rows=log.map(x=>{
+      const dnp=(x.min||0)===0;
+      return `<tr class="${dnp?'dnp':''}"><td class="gw">GW${x.gw}</td><td class="op">${esc(x.opp)} (${x.home?"H":"A"})</td>
+        <td class="pts">${x.pts==null?"–":x.pts}</td><td>${x.min==null?"–":x.min}'</td>
+        <td>${x.goals||0}</td><td>${x.assists||0}</td><td>${x.bonus||0}</td>
+        <td>${x.xg==null?"–":x.xg}</td><td>${x.xa==null?"–":x.xa}</td></tr>`;
+    }).join("");
+    logBlock=`<div class="pmsect"><h4>Game log</h4>
+      <table class="pmlog"><thead><tr><th>GW</th><th>Opp</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>Bns</th><th>xG</th><th>xA</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }
+
+  // past seasons
+  const past=(p.past_seasons||[]).slice(-4).reverse();
+  let pastBlock="";
+  if(past.length){
+    const rows=past.map(x=>`<tr><td class="gw">${esc(x.season)}</td><td class="pts">${x.points==null?"–":x.points}</td>
+      <td>${x.minutes==null?"–":x.minutes}</td><td>${x.goals||0}</td><td>${x.assists||0}</td>
+      <td>${x.xg==null?"–":x.xg}</td><td>${x.xa==null?"–":x.xa}</td></tr>`).join("");
+    pastBlock=`<div class="pmsect" style="border-bottom:none"><h4>Previous seasons</h4>
+      <table class="pmlog"><thead><tr><th>Season</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>xG</th><th>xA</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }
+
+  return head+aiBlock+seasonBlock+fixBlock+logBlock+pastBlock;
+}
+
+let _pmSeq=0;
+window.openPlayer = async (pid)=>{
+  pid=+pid; if(!pid) return;
+  const modal=document.getElementById("pmodal"), body=document.getElementById("pmbody");
+  const seq=++_pmSeq;
+  body.innerHTML=`<div class="pmload">Loading player…</div>`;
+  modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
+  document.body.style.overflow="hidden";
+  let prof=null, ai="";
+  try{
+    const [pf, ex]=await Promise.all([
+      g(`/api/player/${pid}/profile`),
+      post(`/api/player/${pid}/explain`,{}).catch(()=>null)
+    ]);
+    prof=pf; ai=ex&&ex.text?ex.text:"";
+  }catch(e){}
+  if(seq!==_pmSeq) return;           // a newer open superseded this one
+  if(!prof||prof.detail){ body.innerHTML=`<div class="pmload">Couldn't load this player.</div>`; return; }
+  body.innerHTML=renderProfile(prof, ai);
+  document.getElementById("pmodal").scrollTop=0;
 };
+window.closePlayer = ()=>{
+  const modal=document.getElementById("pmodal");
+  modal.classList.remove("open"); modal.setAttribute("aria-hidden","true");
+  document.body.style.overflow="";
+};
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closePlayer(); });
+// Delegated: any element carrying data-pid opens the profile.
+document.addEventListener("click", e=>{
+  const el=e.target.closest("[data-pid]");
+  if(el){ e.preventDefault(); openPlayer(+el.dataset.pid); }
+});
 
 /* ------------------------- Blueprint (picks) ------------------------- */
 function bpPodium(p, rank){
@@ -630,7 +814,7 @@ function stTableHTML(){
   const head=`<tr><th class="pl" onclick="stSort('web_name')">Player${ar('web_name')}</th>`+STCOLS.map(c=>`<th onclick="stSort('${c[0]}')">${c[1]}${ar(c[0])}</th>`).join("")+`</tr>`;
   const body=rows.map((p,i)=>{
     const cells=STCOLS.map(c=>{const v=p[c[0]];const cls=c[0]==="total_points"?' class="tot"':'';return `<td${cls}>${(v==null||isNaN(+v))?"–":(+v).toFixed(c[2])}</td>`;}).join("");
-    return `<tr><td class="pl"><span class="pcell"><span class="rk${i<3?' top':''}">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td>${cells}</tr>`;
+    return `<tr class="prow-lnk" data-pid="${p.player_id}"><td class="pl"><span class="pcell"><span class="rk${i<3?' top':''}">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm lnk">${esc(p.web_name)}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td>${cells}</tr>`;
   }).join("");
   return `<div class="fcwrap"><table class="fc"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
@@ -681,7 +865,7 @@ function valListHTML(P){
   if(!arr.length)return `<div class="card muted">No players match.</div>`;
   const ar=k=>VAL.sortKey===k?(VAL.dir<0?" ↓":" ↑"):"";
   const head=`<tr><th class="pl" onclick="valSort('web_name')">Player${ar('web_name')}</th>`+VALCOLS.map(c=>`<th onclick="valSort('${c[0]}')">${c[1]}${ar(c[0])}</th>`).join("")+`</tr>`;
-  const body=arr.map((p,i)=>{const diff=+p.owned_pct<10;return `<tr><td class="pl"><span class="pcell"><span class="rk${i<3?' top':''}">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm">${esc(p.web_name)}${diff?' <span style="color:var(--acc);font-size:10px" title="Differential">◆</span>':''}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td><td>£${p.price}m</td><td class="tot">${num(p.pred_points)}</td><td>${num(p.ppm)}</td><td>${(+p.owned_pct).toFixed(1)}</td></tr>`;}).join("");
+  const body=arr.map((p,i)=>{const diff=+p.owned_pct<10;return `<tr class="prow-lnk" data-pid="${p.player_id}"><td class="pl"><span class="pcell"><span class="rk${i<3?' top':''}">${i+1}</span>${kitImg(p,'fckit')}<span class="pcol"><span class="pnm lnk">${esc(p.web_name)}${diff?' <span style="color:var(--acc);font-size:10px" title="Differential">◆</span>':''}</span><span class="psub">${esc(p.position)} · ${esc(p.team_name)}</span></span></span></td><td>£${p.price}m</td><td class="tot">${num(p.pred_points)}</td><td>${num(p.ppm)}</td><td>${(+p.owned_pct).toFixed(1)}</td></tr>`;}).join("");
   return `<div class="fcwrap"><table class="fc"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 function ensureTip(){let t=document.getElementById("vtip");if(!t){t=document.createElement("div");t.id="vtip";t.style.cssText="position:fixed;z-index:9999;pointer-events:none;background:var(--soft);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:12px;display:none;box-shadow:0 6px 18px rgba(0,0,0,.35);max-width:230px";document.body.appendChild(t);}return t;}
@@ -698,7 +882,7 @@ function valChartHTML(P){
   for(let gx=4;gx<=x1;gx+=2)grid+=`<line x1="${X(gx)}" y1="${mT}" x2="${X(gx)}" y2="${H-mB}" stroke="var(--line)"/><text x="${X(gx)}" y="${H-mB+18}" fill="var(--mut)" font-size="11" text-anchor="middle">£${gx}</text>`;
   for(let gy=0;gy<=maxY;gy+=2)grid+=`<line x1="${mL}" y1="${Y(gy)}" x2="${W-mR}" y2="${Y(gy)}" stroke="var(--line)"/><text x="${mL-8}" y="${Y(gy)+4}" fill="var(--mut)" font-size="11" text-anchor="end">${gy}</text>`;
   const top=P.slice().sort((a,b)=>b.pred_points-a.pred_points).slice(0,7).reduce((s,p)=>(s[p.player_id]=1,s),{});
-  const dots=P.map(p=>{const diff=+p.owned_pct<10;const r=diff?5:3.5;const fill=diff?'var(--acc)':'color-mix(in srgb,var(--mut) 50%,transparent)';const ring=diff?`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r+2.5}" fill="none" stroke="var(--acc)" stroke-width="1.1" opacity="0.5"/>`:'';const lbl=top[p.player_id]?`<text x="${X(+p.price)+r+3}" y="${Y(+p.pred_points)+3.5}" fill="var(--txt)" font-size="10" font-weight="600">${esc(p.web_name)}</text>`:'';return ring+`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r}" fill="${fill}" style="cursor:pointer" onmouseenter="vtip(event,'${p.player_id}')" onmousemove="vtip(event,'${p.player_id}')" onmouseleave="vtipHide()"/>`+lbl;}).join("");
+  const dots=P.map(p=>{const diff=+p.owned_pct<10;const r=diff?5:3.5;const fill=diff?'var(--acc)':'color-mix(in srgb,var(--mut) 50%,transparent)';const ring=diff?`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r+2.5}" fill="none" stroke="var(--acc)" stroke-width="1.1" opacity="0.5"/>`:'';const lbl=top[p.player_id]?`<text x="${X(+p.price)+r+3}" y="${Y(+p.pred_points)+3.5}" fill="var(--txt)" font-size="10" font-weight="600">${esc(p.web_name)}</text>`:'';return ring+`<circle cx="${X(+p.price)}" cy="${Y(+p.pred_points)}" r="${r}" fill="${fill}" style="cursor:pointer" onmouseenter="vtip(event,'${p.player_id}')" onmousemove="vtip(event,'${p.player_id}')" onmouseleave="vtipHide()" onclick="vtipHide();openPlayer(${p.player_id})"/>`+lbl;}).join("");
   return `<div class="scwrap"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Value scatter">${grid}<text x="${W/2}" y="${H-6}" fill="var(--mut)" font-size="12" text-anchor="middle">Price (£m)</text><text transform="translate(14,${H/2}) rotate(-90)" fill="var(--mut)" font-size="12" text-anchor="middle">Projected points</text>${dots}</svg>
    <div class="sclegend"><span class="lg"><span class="scdot" style="background:var(--acc)"></span>Differential (&lt;10% owned)</span><span class="lg"><span class="scdot" style="background:var(--mut)"></span>Template</span><span class="lg">hover a dot for the player</span></div></div>`;
 }
@@ -720,7 +904,7 @@ function rckSlot(p, showNew){
   const cap=p.is_captain?'<span class="capbadge">C</span>'
     :(p.is_vice?'<span class="capbadge" style="background:var(--mut);color:#0a0f0b">V</span>':'');
   const isNew=showNew&&p.is_new;
-  return `<div class="slot filled"><div class="shirt${isNew?' new':''}">${kitImg(p,"kit")}${cap}</div>
+  return `<div class="slot filled" data-pid="${p.player_id}" style="cursor:pointer" title="View ${esc(p.web_name)}'s profile"><div class="shirt${isNew?' new':''}">${kitImg(p,"kit")}${cap}</div>
       <div class="snm">${esc(p.web_name)}</div><div class="spt">${num(p.pred_points)}</div>
       ${isNew?'<div class="in-tag">IN</div>':''}</div>`;
 }
