@@ -281,6 +281,16 @@
   .pmspark{display:flex;align-items:flex-end;gap:5px;height:46px;margin-top:2px}
   .pmspark .b{flex:1;min-width:10px;background:var(--gold);border-radius:3px 3px 0 0;opacity:.9;position:relative}
   .pmspark .b span{position:absolute;top:-15px;left:0;right:0;text-align:center;font-size:10px;color:var(--mut)}
+  .pmchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+  .pmchip{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+  .pmchip.sp{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
+  .pmchip.up{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,transparent)}
+  .pmchip.down{color:#ff8b8b;border-color:#7a2020}
+  .pmsh{display:flex;align-items:center;gap:10px;margin:0 0 11px}
+  .pmsh h4{margin:0}
+  .pmseg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-left:auto}
+  .pmseg button{background:transparent;color:var(--mut);border:none;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:700;font-family:inherit}
+  .pmseg button.on{background:var(--gold);color:#2a2205}
   @media(max-width:560px){
     .pmhead{flex-wrap:wrap}.pmproj{margin-left:0;text-align:left;width:100%}
     .pmcards{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
@@ -453,7 +463,54 @@ function pmSpark(pts){
   return `<div class="pmspark">${bars}</div>`;
 }
 
+// Set-piece duty + price / transfer momentum chips.
+function pmChips(p){
+  const sp=p.set_pieces||{}, pr=p.price||{}, chips=[];
+  const roles=[];
+  if(sp.pens===1) roles.push("Penalties"); else if(sp.pens===2) roles.push("Pens (2nd)");
+  if(sp.fk===1) roles.push("Free kicks");
+  if(sp.corners===1) roles.push("Corners");
+  if(roles.length) chips.push(`<span class="pmchip sp">⚽ ${roles.join(" · ")}</span>`);
+  const ce=pr.change_event;
+  if(ce!=null && ce!==0){ const up=ce>0;
+    chips.push(`<span class="pmchip ${up?'up':'down'}">${up?"▲":"▼"} £${Math.abs(ce).toFixed(1)} this week</span>`); }
+  const nt=pr.net_transfers;
+  if(nt!=null && Math.abs(nt)>=1000){ const k=Math.round(nt/1000);
+    chips.push(`<span class="pmchip ${nt>0?'up':'down'}">${nt>0?"+":""}${k}k in this GW</span>`); }
+  return chips.join("");
+}
+// Season stat cards; swaps the rate stats to per-90 when the toggle is on.
+let _PMPROF=null, _PM90=false;
+function pmCards(p){
+  const s=p.season||{}, pp=p.per90||{}, per90=_PM90;
+  const rate=(k90,ktot)=> per90 ? _sv(pp,k90) : _sv(s,ktot);
+  return [
+    _statCard("Points",_sv(s,"total_points"),"gold"),
+    _statCard("Per game",_sv(s,"points_per_game")),
+    _statCard("Form",_sv(s,"form"),"gold"),
+    _statCard("Value",p.value,"gold"),
+    _statCard("Minutes",_sv(s,"minutes")),
+    _statCard("Starts",_sv(s,"starts")),
+    _statCard("Goals",_sv(s,"goals_scored")),
+    _statCard("Assists",_sv(s,"assists")),
+    _statCard(per90?"xG/90":"xG", rate("xg","expected_goals")),
+    _statCard(per90?"xA/90":"xA", rate("xa","expected_assists")),
+    _statCard(per90?"xGI/90":"xGI", rate("xgi","expected_goal_involvements")),
+    _statCard(per90?"DefC/90":"DefCon", rate("defcon","defensive_contribution"),"gold"),
+    _statCard("Clean sh.",_sv(s,"clean_sheets")),
+    _statCard("xGC",_sv(s,"expected_goals_conceded")),
+    _statCard("Bonus",_sv(s,"bonus")),
+    _statCard("ICT",_sv(s,"ict_index")),
+  ].join("");
+}
+window.pmSetMode=(m)=>{
+  _PM90=!!m; if(!_PMPROF) return;
+  const el=document.getElementById("pmcards"); if(el) el.innerHTML=pmCards(_PMPROF);
+  document.querySelectorAll(".pmseg button").forEach((b,i)=>b.classList.toggle("on",(i===1)===_PM90));
+};
+
 function renderProfile(p, ai){
+  _PMPROF=p;
   const h=p.header||{}, s=p.season||{}, proj=p.projection;
   const pos=h.position||"", price=h.price!=null?`£${h.price}m`:"";
   const own=h.owned_pct!=null?`${(+h.owned_pct).toFixed(1)}% owned`:"";
@@ -472,30 +529,19 @@ function renderProfile(p, ai){
   const head=`<div class="pmhead">${kit}
     <div><div class="pmhname">${esc(h.web_name||"Player")}</div>
       <div class="pmhsub"><b>${esc(pos)}</b> · ${esc(h.team_name||"")}${price?` · ${price}`:""}${own?` · ${own}`:""}</div>
-      ${flag}</div>${projBlock}</div>`;
+      <div class="pmchips">${flag}${pmChips(p)}</div></div>${projBlock}</div>`;
 
-  const aiBlock = ai ? `<div class="pmsect"><h4>The AI take</h4>
-     <div class="pmai"><span class="who">${esc(h.web_name||"")}:</span> ${esc(ai)}</div></div>` : "";
+  const aiBlock = `<div class="pmsect"><h4>The AI take</h4>
+     <div class="pmai" id="pmai">${ai
+        ? `<span class="who">${esc(h.web_name||"")}:</span> ${esc(ai)}`
+        : `<span class="muted">Reading the numbers…</span>`}</div></div>`;
 
-  // season stat cards
-  const cards=[
-    _statCard("Points", _sv(s,"total_points"), "gold"),
-    _statCard("Per game", _sv(s,"points_per_game")),
-    _statCard("Form", _sv(s,"form")),
-    _statCard("Minutes", _sv(s,"minutes")),
-    _statCard("Starts", _sv(s,"starts")),
-    _statCard("Goals", _sv(s,"goals_scored")),
-    _statCard("Assists", _sv(s,"assists")),
-    _statCard("xG", _sv(s,"expected_goals")),
-    _statCard("xA", _sv(s,"expected_assists")),
-    _statCard("xGI", _sv(s,"expected_goal_involvements")),
-    _statCard("Clean sh.", _sv(s,"clean_sheets")),
-    _statCard("Bonus", _sv(s,"bonus")),
-    _statCard("BPS", _sv(s,"bps")),
-    _statCard("ICT", _sv(s,"ict_index")),
-  ].join("");
-  const seasonBlock=`<div class="pmsect"><h4>This season${p.games_played?` · ${p.games_played} games`:""}</h4>
-     <div class="pmcards">${cards}</div>
+  // season stat cards (with a Totals / Per 90 toggle)
+  const per90avail = p.per90 && Object.values(p.per90).some(v=>v!=null);
+  const toggle = per90avail
+    ? `<div class="pmseg"><button class="${!_PM90?'on':''}" onclick="pmSetMode(false)">Totals</button><button class="${_PM90?'on':''}" onclick="pmSetMode(true)">Per 90</button></div>` : "";
+  const seasonBlock=`<div class="pmsect"><div class="pmsh"><h4>This season${p.games_played?` · ${p.games_played} games`:""}</h4>${toggle}</div>
+     <div class="pmcards" id="pmcards">${pmCards(p)}</div>
      ${p.form_last5_points&&p.form_last5_points.length?`<div style="margin-top:14px"><div class="pmhsub" style="margin-bottom:16px">Points, last ${p.form_last5_points.length} games</div>${pmSpark(p.form_last5_points)}</div>`:""}</div>`;
 
   // upcoming fixtures
@@ -512,10 +558,11 @@ function renderProfile(p, ai){
       return `<tr class="${dnp?'dnp':''}"><td class="gw">GW${x.gw}</td><td class="op">${esc(x.opp)} (${x.home?"H":"A"})</td>
         <td class="pts">${x.pts==null?"–":x.pts}</td><td>${x.min==null?"–":x.min}'</td>
         <td>${x.goals||0}</td><td>${x.assists||0}</td><td>${x.bonus||0}</td>
+        <td>${x.defcon==null?"–":x.defcon}</td>
         <td>${x.xg==null?"–":x.xg}</td><td>${x.xa==null?"–":x.xa}</td></tr>`;
     }).join("");
     logBlock=`<div class="pmsect"><h4>Game log</h4>
-      <table class="pmlog"><thead><tr><th>GW</th><th>Opp</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>Bns</th><th>xG</th><th>xA</th></tr></thead>
+      <table class="pmlog"><thead><tr><th>GW</th><th>Opp</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>Bns</th><th>DefC</th><th>xG</th><th>xA</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }
 
@@ -537,23 +584,27 @@ function renderProfile(p, ai){
 let _pmSeq=0;
 window.openPlayer = async (pid)=>{
   pid=+pid; if(!pid) return;
+  _PM90=false;                       // each player opens on Totals
   const modal=document.getElementById("pmodal"), body=document.getElementById("pmbody");
   const seq=++_pmSeq;
   body.innerHTML=`<div class="pmload">Loading player…</div>`;
   modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
   document.body.style.overflow="hidden";
-  let prof=null, ai="";
-  try{
-    const [pf, ex]=await Promise.all([
-      g(`/api/player/${pid}/profile`),
-      post(`/api/player/${pid}/explain`,{}).catch(()=>null)
-    ]);
-    prof=pf; ai=ex&&ex.text?ex.text:"";
-  }catch(e){}
+  let prof=null;
+  try{ prof=await g(`/api/player/${pid}/profile`); }catch(e){}
   if(seq!==_pmSeq) return;           // a newer open superseded this one
   if(!prof||prof.detail){ body.innerHTML=`<div class="pmload">Couldn't load this player.</div>`; return; }
-  body.innerHTML=renderProfile(prof, ai);
+  body.innerHTML=renderProfile(prof, "");     // stats paint instantly
   document.getElementById("pmodal").scrollTop=0;
+  // Richer AI take streams in right after, without blocking the stats.
+  try{
+    const ins=await g(`/api/player/${pid}/insight`);
+    if(seq!==_pmSeq) return;
+    const slot=document.getElementById("pmai");
+    if(slot && ins && ins.text){
+      slot.innerHTML=`<span class="who">${esc(prof.header&&prof.header.web_name||"")}:</span> ${esc(ins.text)}`;
+    } else if(slot){ slot.innerHTML=`<span class="muted">The model take is unavailable right now.</span>`; }
+  }catch(e){}
 };
 window.closePlayer = ()=>{
   const modal=document.getElementById("pmodal");
