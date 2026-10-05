@@ -339,12 +339,22 @@ def _profile_insight(pid: int, prof: dict) -> str:
     return text
 
 
+_REPORT_CACHE = {}
+
+
 @app.get("/api/report")
 def report_card():
-    """Self-graded accuracy report (walk-forward backtest over the live season)."""
+    """Self-graded accuracy report, computed lazily from the current state and
+    cached per build so it never bloats the engine rebuild."""
     st = engine.get_state()
-    return st.report or {"per_gw": [], "season": {}, "next_gw": st.next_gw,
-                         "season_started": st.season_started}
+    ent = _REPORT_CACHE.get("r")
+    if ent and ent[0] == st.built_at:
+        rep = ent[1]
+    else:
+        rep = engine.compute_report(st)
+        _REPORT_CACHE["r"] = (st.built_at, rep)
+    return rep or {"per_gw": [], "season": {}, "next_gw": st.next_gw,
+                   "season_started": st.season_started}
 
 
 @app.get("/api/player/{pid}/profile")
