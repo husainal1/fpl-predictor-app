@@ -291,7 +291,34 @@
   .pmseg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-left:auto}
   .pmseg button{background:transparent;color:var(--mut);border:none;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:700;font-family:inherit}
   .pmseg button.on{background:var(--gold);color:#2a2205}
-  @media(max-width:560px){
+  /* -------- report card -------- */
+  .rc-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+  .rc-tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .rc-tile .v{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .rc-tile .v.gold{color:var(--gold)}.rc-tile .v.acc{color:var(--acc)}
+  .rc-tile .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-top:7px}
+  .rc-tile .s{font-size:12px;color:var(--mut);margin-top:5px}
+  .rc-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-top:16px}
+  .rc-card h3{margin:0 0 3px;font-size:16px}
+  .rc-card .sub{color:var(--mut);font-size:12.5px;margin-bottom:14px}
+  .rc-legend{display:flex;gap:16px;font-size:12px;color:var(--mut);margin-top:6px;flex-wrap:wrap}
+  .rc-legend .k{display:inline-flex;align-items:center;gap:6px}
+  .rc-sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .rc-two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .rc-col .hd{font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:8px;color:var(--mut)}
+  .rc-sr{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .rc-sr:last-child{border-bottom:none}
+  .rc-sr .nm{font-weight:700;flex:1}.rc-sr .pp{color:var(--mut);font-size:12.5px;font-weight:400}
+  .rc-sr .ac{font-weight:800;font-variant-numeric:tabular-nums}
+  .rc-sr .ac.g{color:var(--gold)}.rc-sr .ac.r{color:#ff8b8b}
+  .rc-pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+  .rc-pill.hit{color:var(--acc);border-color:color-mix(in srgb,var(--acc) 40%,transparent)}
+  table.rc{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.rc th,table.rc td{padding:8px;border-bottom:1px solid var(--line);text-align:center;font-variant-numeric:tabular-nums}
+  table.rc th{color:var(--mut);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  table.rc td.pl,table.rc th.pl{text-align:left}
+  table.rc .up{color:var(--acc);font-weight:700}table.rc .down{color:#ff8b8b;font-weight:700}
+  @media(max-width:560px){.rc-tiles{grid-template-columns:1fr}.rc-two{grid-template-columns:1fr}
     .pmhead{flex-wrap:wrap}.pmproj{margin-left:0;text-align:left;width:100%}
     .pmcards{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
   }
@@ -324,6 +351,7 @@
     <button data-tab="value">Anomalies</button>
     <button data-tab="stats">The Ledger</button>
     <button data-tab="squad">Apex Projections</button>
+    <button data-tab="report">The Report Card</button>
     <span class="ctl" id="ctl"></span>
   </nav>
   <div id="tabhead"></div>
@@ -361,7 +389,8 @@ const GLYPH = {
   value:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12,2.5 21.5,12 12,21.5 2.5,12"/><polygon points="12,8 16,12 12,16 8,12" fill="currentColor" stroke="none"/></svg>`,
   stats:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="13"/><line x1="10" y1="21" x2="10" y2="6"/><line x1="16" y1="21" x2="16" y2="15"/><line x1="21" y1="21" x2="21" y2="10"/></svg>`,
   squad:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18"/><path d="M3 19l2-11 5 6 2-9 2 9 5-6 2 11z"/></svg>`,
-  reckoning:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"/><path d="M8 20h8"/><path d="M5 8h14"/><path d="M5 8l-2.5 5.5a2.8 2.8 0 0 0 5 0z"/><path d="M19 8l-2.5 5.5a2.8 2.8 0 0 0 5 0z"/><circle cx="12" cy="5" r="1.3"/></svg>`
+  reckoning:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"/><path d="M8 20h8"/><path d="M5 8h14"/><path d="M5 8l-2.5 5.5a2.8 2.8 0 0 0 5 0z"/><path d="M19 8l-2.5 5.5a2.8 2.8 0 0 0 5 0z"/><circle cx="12" cy="5" r="1.3"/></svg>`,
+  report:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a1 1 0 0 1 1 1v16l-6-3-6 3V4a1 1 0 0 1 1-1z"/><path d="M9.5 8.5l1.6 1.6 3.4-3.4"/></svg>`
 };
 const TABMETA = {
   forecast:["The Prime Timeline","Every player's points, projected gameweek by gameweek across the weeks ahead."],
@@ -370,7 +399,8 @@ const TABMETA = {
   value:["Anomalies","The best points per £m and the low-owned differentials most managers are missing."],
   stats:["The Ledger","Real season stats so far — goals, assists, xG, xGI, minutes, bonus and more."],
   squad:["Apex Projections","The single best XI and captain your £100m can buy for this gameweek."],
-  reckoning:["The Reckoning","Import your real FPL team and get the optimal captain, transfers and chip calls."]
+  reckoning:["The Reckoning","Import your real FPL team and get the optimal captain, transfers and chip calls."],
+  report:["The Report Card","How the model has actually done — graded against real results, gameweek by gameweek."]
 };
 function setTabHead(tab){
   const el=document.getElementById("tabhead"); if(!el) return;
@@ -705,6 +735,9 @@ async function render(){
     else if(TAB==="value"){
       await loadValue();
     }
+    else if(TAB==="report"){
+      await loadReport();
+    }
   }catch(e){ view.innerHTML = `<div class="loading">Could not load. Is the API running?</div>`; }
 }
 
@@ -878,6 +911,86 @@ function renderStats(){
   const s=document.getElementById("stsearch");if(s&&ST.q){s.focus();s.setSelectionRange(s.value.length,s.value.length);}
 }
 
+/* ------------------------- The Report Card ------------------------- */
+async function loadReport(){
+  const d = await gc("/api/report");
+  renderReport(d||{});
+}
+function rcChart(per){
+  const gws=per.map(p=>p.gw), model=per.map(p=>p.model_mae), base=per.map(p=>p.base_mae);
+  if(!gws.length) return "";
+  const W=860,H=260,mL=44,mR=18,mT=18,mB=34;
+  const all=model.concat(base).filter(v=>v!=null);
+  let yMin=Math.min(...all), yMax=Math.max(...all);
+  const pad=Math.max(0.1,(yMax-yMin)*0.25); yMin=Math.max(0,yMin-pad); yMax=yMax+pad;
+  const X=i=>mL+(gws.length<2?0:i/(gws.length-1))*(W-mL-mR);
+  const Y=v=>mT+(yMax-v)/((yMax-yMin)||1)*(H-mT-mB);
+  let grid="";
+  const steps=4;
+  for(let s=0;s<=steps;s++){const val=yMin+(yMax-yMin)*s/steps;const y=Y(val);
+    grid+=`<line x1="${mL}" y1="${y}" x2="${W-mR}" y2="${y}" stroke="var(--line)"/><text x="${mL-8}" y="${y+4}" fill="var(--mut)" font-size="11" text-anchor="end">${val.toFixed(2)}</text>`;}
+  gws.forEach((gw,i)=>{grid+=`<text x="${X(i)}" y="${H-mB+20}" fill="var(--mut)" font-size="11" text-anchor="middle">GW${gw}</text>`;});
+  const line=(arr,color,w)=>{const pts=arr.map((v,i)=>v==null?null:`${X(i)},${Y(v)}`).filter(Boolean).join(" ");
+    const dots=arr.map((v,i)=>v==null?"":`<circle cx="${X(i)}" cy="${Y(v)}" r="3.4" fill="${color}"/>`).join("");
+    return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linejoin="round"/>${dots}`;};
+  const lbl=model.map((v,i)=>v==null?"":`<text x="${X(i)}" y="${Y(v)-9}" fill="var(--gold)" font-size="10.5" font-weight="700" text-anchor="middle">${v.toFixed(2)}</text>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="MAE by gameweek">${grid}${line(base,'var(--mut)',2)}${line(model,'var(--gold)',2.6)}${lbl}</svg>`;
+}
+function rcScoreRows(arr, cls){
+  if(!arr||!arr.length) return `<div class="muted" style="font-size:13px">None this week.</div>`;
+  return arr.map(p=>`<div class="rc-sr"><span class="nm">${esc(p.name)} <span class="pp">· proj ${p.pred}</span></span><span class="ac ${cls}">${p.actual}</span></div>`).join("");
+}
+function renderReport(d){
+  const per=d.per_gw||[], s=d.season||{};
+  if(!per.length){
+    view.innerHTML=`<div class="rc-card"><h3>The grades are coming.</h3><div class="sub">Once gameweek ${d.next_gw||1} is played, LokiFPL starts grading every projection against real results — hits and misses both. Check back after the first results land.</div></div>`;
+    return;
+  }
+  const pct=s.pct_better!=null?`+${s.pct_better}%`:"—";
+  const xiDiff=s.xi_diff!=null?(s.xi_diff>=0?`+${s.xi_diff}`:`${s.xi_diff}`):"—";
+  const tiles=`<div class="rc-tiles">
+    <div class="rc-tile"><div class="v gold">${s.model_mae!=null?s.model_mae.toFixed(2):"—"}</div><div class="k">Season MAE</div><div class="s">avg points off per player / GW</div></div>
+    <div class="rc-tile"><div class="v acc">${pct}</div><div class="k">vs baseline</div><div class="s">better than a form-average model (${s.base_mae!=null?s.base_mae.toFixed(2):"—"})</div></div>
+    <div class="rc-tile"><div class="v ${s.xi_diff>=0?'acc':''}">${xiDiff}</div><div class="k">Model XI vs Template</div><div class="s">points vs the most-owned side</div></div>
+  </div>`;
+
+  const chart=`<div class="rc-card"><h3>Accuracy by gameweek</h3>
+    <div class="sub">Mean absolute error each week — lower is better. Model vs a form-average baseline.</div>
+    ${rcChart(per)}
+    <div class="rc-legend"><span class="k"><span class="rc-sw" style="background:var(--gold)"></span> LokiFPL model</span>
+    <span class="k"><span class="rc-sw" style="background:var(--mut)"></span> Baseline</span>
+    <span class="k">Lower = more accurate</span></div></div>`;
+
+  let scard="";
+  const sc=d.scorecard;
+  if(sc){
+    const cap=sc.captain;
+    const capPill=cap&&cap.name?`<span class="rc-pill ${cap.actual>=6?'hit':''}">Captain: ${esc(cap.name)}, ${cap.actual} pts</span>`:"";
+    scard=`<div class="rc-card"><h3>Gameweek ${sc.gw} scorecard</h3>
+      <div class="sub">The most recent graded week. <span class="rc-pill">MAE ${sc.mae.toFixed(2)}</span> ${capPill} <span class="rc-pill">Model XI ${sc.model_xi} pts</span></div>
+      <div class="rc-two">
+        <div class="rc-col"><div class="hd">Called it</div>${rcScoreRows(sc.hits,'g')}</div>
+        <div class="rc-col"><div class="hd">Got it wrong</div>${rcScoreRows(sc.misses,'r')}</div>
+      </div></div>`;
+  }
+
+  const xiRows=per.map(p=>{const diff=p.model_xi-p.template_xi;const cls=diff>=0?'up':'down';const sign=diff>=0?'+':'−';
+    return `<tr><td class="pl">GW${p.gw}</td><td>${p.model_xi}</td><td>${p.template_xi}</td><td class="${cls}">${sign}${Math.abs(diff)}</td></tr>`;}).join("");
+  const xiTot=`<tr style="border-top:2px solid var(--gold)"><td class="pl" style="font-weight:800">Season</td><td style="font-weight:800">${s.model_xi_total}</td><td style="font-weight:800">${s.template_xi_total}</td><td class="${s.xi_diff>=0?'up':'down'}" style="font-size:15px">${s.xi_diff>=0?'+':'−'}${Math.abs(s.xi_diff)}</td></tr>`;
+  const xiCard=`<div class="rc-card"><h3>Model XI vs Template XI</h3>
+    <div class="sub">Each week's best LokiFPL XI against the most-owned "template" side, scored on what they actually returned.</div>
+    <table class="rc"><thead><tr><th class="pl">Gameweek</th><th>Model XI</th><th>Template XI</th><th>Diff</th></tr></thead><tbody>${xiRows}${xiTot}</tbody></table></div>`;
+
+  const hm=(arr,verdict)=>arr.map(p=>`<tr><td class="pl" style="font-weight:700">${esc(p.name)}</td><td>GW${p.gw}</td><td>${p.pred}</td><td>${p.actual}</td><td><span class="rc-pill ${verdict==='Hit'?'hit':''}">${verdict}</span></td></tr>`).join("");
+  const hmCard=((d.season_hits&&d.season_hits.length)||(d.season_misses&&d.season_misses.length))?`<div class="rc-card"><h3>Season's biggest hits &amp; misses</h3>
+    <div class="sub">The calls the model got most right and most wrong — kept honest.</div>
+    <table class="rc"><thead><tr><th class="pl">Player</th><th>GW</th><th>Projected</th><th>Actual</th><th>Verdict</th></tr></thead>
+    <tbody>${hm(d.season_hits||[],'Hit')}${hm(d.season_misses||[],'Miss')}</tbody></table></div>`:"";
+
+  view.innerHTML=tiles+chart+scard+xiCard+hmCard+
+    `<p class="muted" style="font-size:12px;margin-top:16px">Grades use a walk-forward backtest: each gameweek is predicted from prior-gameweek data only, then compared to what actually happened. Covers GW${per[0].gw}–GW${per[per.length-1].gw} so far.</p>`;
+}
+
 /* ------------------------- landing / home ------------------------- */
 window.goTab=(t)=>{TAB=t;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));render();};
 const FEATS=[
@@ -887,7 +1000,8 @@ const FEATS=[
   ["reckoning","The Reckoning","Import your team for the optimal captain, transfers and chips."],
   ["value","Anomalies","The best points per £m and the low-owned differentials."],
   ["stats","The Ledger","Real season stats — goals, xG, xGI, minutes and more."],
-  ["squad","Apex Projections","The best XI and captain your budget can buy."]
+  ["squad","Apex Projections","The best XI and captain your budget can buy."],
+  ["report","The Report Card","How the model has actually done, graded against real results."]
 ];
 function renderHome(){
   const h=HEALTH||{},m=h.metrics||{};const gw=h.next_gw||"—";
