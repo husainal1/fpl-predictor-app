@@ -344,17 +344,15 @@ _REPORT_CACHE = {}
 
 @app.get("/api/report")
 def report_card():
-    """Self-graded accuracy report, computed lazily from the current state and
-    cached per build so it never bloats the engine rebuild."""
+    """Self-graded accuracy report. Temporarily disabled: early-season projections
+    are unstable (the model overshoots badly off one or two games of data), so the
+    graded numbers are not defensible yet. The grading code (engine.compute_report)
+    stays in place; re-enable once enough gameweeks have been played for the
+    walk-forward projections to stabilise, or after tightening the model's
+    early-season behaviour."""
     st = engine.get_state()
-    ent = _REPORT_CACHE.get("r")
-    if ent and ent[0] == st.built_at:
-        rep = ent[1]
-    else:
-        rep = engine.compute_report(st)
-        _REPORT_CACHE["r"] = (st.built_at, rep)
-    return rep or {"per_gw": [], "season": {}, "next_gw": st.next_gw,
-                   "season_started": st.season_started}
+    return {"per_gw": [], "season": {}, "next_gw": st.next_gw,
+            "season_started": st.season_started, "disabled": True}
 
 
 @app.get("/api/player/{pid}/profile")
