@@ -1125,17 +1125,16 @@ def build_state(session_get=get_json) -> EngineState:
     team_meta = {int(r["id"]): {"name": r["name"], "short": r.get("short_name", r["name"])}
                  for _, r in teams_raw.iterrows()}
 
-    # Self-graded report card: a walk-forward backtest over the live season. Each
-    # current-season feature row already uses only prior-gameweek data (shift-based
-    # lags), so predicting it and comparing to the actual points it carries is a
-    # leakage-free grade of what the model would have projected before that GW.
+    # Self-graded report card: a walk-forward backtest over the live season that
+    # grades the SAME projection the app serves. For each completed gameweek we
+    # rebuild the model's inputs from data before that week only and run the exact
+    # production prediction path (predict_gw, with availability damping), then
+    # compare to the real points. This matches what users actually saw.
     report = {}
     try:
-        cur = fe[fe["season"] == CURRENT_SEASON].copy()
-        if not cur.empty:
-            cur["pred"] = model.predict(cur[FEATURES].fillna(0.0))
-            cur["actual"] = pd.to_numeric(cur["total_points"], errors="coerce")
-            report = build_report(cur, players_now, next_gw)
+        rep_d = _report_predictions(hist, players_now, fixtures, team_name_now,
+                                    cur_only, model, next_gw, statuses, chances)
+        report = build_report(rep_d, next_gw)
     except Exception as e:  # noqa: BLE001 - never let the report break a build
         print("REPORT_ERROR", type(e).__name__, str(e)[:300], flush=True)
 
@@ -1211,21 +1210,64 @@ def _best_xi(df, scorecol):
     return rows, float(actual)
 
 
-def build_report(cur, players_now, next_gw) -> dict:
-    """Grade the model against reality, gameweek by gameweek, for the live season."""
-    if cur is None or cur.empty:
+def _report_predictions(hist, players_now, fixtures, team_name_now, cur_strength,
+                        model, next_gw, statuses, chances):
+    """Reproduce the production projection for each completed gameweek using only
+    data from before it, and attach the real actual points. Returns a long frame
+    with one row per (gameweek, player): gw, player_id, web_name, position, pred,
+    actual, sel (that week's ownership), base (form-average baseline)."""
+    cur_hist = hist[hist["season"] == CURRENT_SEASON].copy()
+    if cur_hist.empty or "round" not in cur_hist.columns or "element" not in cur_hist.columns:
+        return pd.DataFrame()
+    cur_hist["element"] = pd.to_numeric(cur_hist["element"], errors="coerce")
+    cur_hist = cur_hist.dropna(subset=["element"])
+    cur_hist["element"] = cur_hist["element"].astype(int)
+    cur_hist["rnd"] = pd.to_numeric(cur_hist["round"], errors="coerce")
+    cur_hist["tp"] = pd.to_numeric(cur_hist["total_points"], errors="coerce")
+    hist_rnd = pd.to_numeric(hist["round"], errors="coerce")
+    played = sorted({int(r) for r in cur_hist["rnd"].dropna().unique()
+                     if 1 <= int(r) < int(next_gw)})
+    frames = []
+    for g in played:
+        upto = hist[(hist["season"] != CURRENT_SEASON) | (hist_rnd < g)]
+        recent_g = latest_form(upto)
+        pg = predict_gw(players_now, fixtures, team_name_now, cur_strength,
+                        recent_g, model, g, statuses, chances=chances, damp=True)
+        if pg is None or pg.empty:
+            continue
+        ag = cur_hist[cur_hist["rnd"] == g]
+        actual = ag.groupby("element")["tp"].sum()
+        sel = (ag.groupby("element")["selected"].max()
+               if "selected" in ag.columns else pd.Series(dtype=float))
+        prior = cur_hist[cur_hist["rnd"] < g].sort_values("rnd")
+        base = prior.groupby("element")["tp"].apply(lambda s: s.tail(3).mean())
+        pg = pg.copy()
+        pg["actual"] = pg["player_id"].map(actual)
+        pg["sel"] = pg["player_id"].map(sel)
+        pg["base"] = pg["player_id"].map(base)
+        pg["gw"] = int(g)
+        pg = pg.dropna(subset=["actual"])
+        if pg.empty:
+            continue
+        frames.append(pg[["gw", "player_id", "web_name", "position",
+                          "pred_points", "actual", "sel", "base"]])
+    if not frames:
+        return pd.DataFrame()
+    d = pd.concat(frames, ignore_index=True).rename(columns={"pred_points": "pred"})
+    d["pred"] = pd.to_numeric(d["pred"], errors="coerce").fillna(0.0)
+    d["actual"] = pd.to_numeric(d["actual"], errors="coerce").fillna(0.0)
+    d["sel"] = pd.to_numeric(d["sel"], errors="coerce").fillna(0.0)
+    d["base"] = pd.to_numeric(d["base"], errors="coerce").fillna(0.0)
+    return d
+
+
+def build_report(d, next_gw) -> dict:
+    """Grade the model against reality, gameweek by gameweek, for the live season.
+    `d` is the long frame from _report_predictions."""
+    if d is None or len(d) == 0:
         return {}
-    wn = dict(zip(players_now["player_id"], players_now["web_name"]))
-    d = cur.copy()
-    d["gw"] = pd.to_numeric(d["round"], errors="coerce")
-    d = d.dropna(subset=["gw", "pred", "actual"])
-    if d.empty:
-        return {}
+    d = d.copy()
     d["gw"] = d["gw"].astype(int)
-    d["web_name"] = d["element"].map(lambda e: wn.get(int(e)) if pd.notna(e) else None)
-    d["base"] = pd.to_numeric(d.get("total_points_roll3_mean"), errors="coerce")
-    d["base"] = d["base"].fillna(pd.to_numeric(d.get("total_points_lag1"), errors="coerce")).fillna(0.0)
-    d["sel"] = pd.to_numeric(d.get("selected"), errors="coerce").fillna(0.0)
 
     def _row(r):
         return {"name": r.web_name or "?", "gw": int(r.gw),
