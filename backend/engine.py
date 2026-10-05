@@ -251,6 +251,8 @@ class EngineState:
     # id -> {name, short} map, both used to build the player-profile view.
     element_by_id: dict = field(default_factory=dict)
     team_meta: dict = field(default_factory=dict)
+    # Self-graded accuracy report (walk-forward backtest over the live season).
+    report: dict = field(default_factory=dict)
 
     # ---- served computations ------------------------------------------------
     def _team_strength(self, team):
@@ -1038,8 +1040,11 @@ def build_state(session_get=get_json) -> EngineState:
                 if c not in live.columns:
                     live[c] = np.nan
             live["name_key"] = live["name"].map(norm_name)
+            for extra in ("element", "selected"):
+                if extra not in live.columns:
+                    live[extra] = np.nan
             keep_cols = ["name", "position", "team", "opponent_team", "value",
-                         "season", "name_key", "opp_name"] + KEEP
+                         "season", "name_key", "opp_name", "element", "selected"] + KEEP
             hist = pd.concat([hist_archive, live[keep_cols]], ignore_index=True)
 
     team_strength = _team_strength_fn(hist, cur_strength)
@@ -1120,12 +1125,26 @@ def build_state(session_get=get_json) -> EngineState:
     team_meta = {int(r["id"]): {"name": r["name"], "short": r.get("short_name", r["name"])}
                  for _, r in teams_raw.iterrows()}
 
+    # Self-graded report card: a walk-forward backtest over the live season. Each
+    # current-season feature row already uses only prior-gameweek data (shift-based
+    # lags), so predicting it and comparing to the actual points it carries is a
+    # leakage-free grade of what the model would have projected before that GW.
+    report = {}
+    try:
+        cur = fe[fe["season"] == CURRENT_SEASON].copy()
+        if not cur.empty:
+            cur["pred"] = model.predict(cur[FEATURES].fillna(0.0))
+            cur["actual"] = pd.to_numeric(cur["total_points"], errors="coerce")
+            report = build_report(cur, players_now, next_gw)
+    except Exception as e:  # noqa: BLE001 - never let the report break a build
+        print("REPORT_ERROR", type(e).__name__, str(e)[:300], flush=True)
+
     return EngineState(
         built_at=time.time(), next_gw=next_gw, season_started=season_started,
         predictions=pred, players_now=players_now, fixtures=fixtures,
         team_name_now=team_name_now, cur_strength=cur_strength, recent=recent,
         model=model, metrics=metrics,
-        element_by_id=element_by_id, team_meta=team_meta,
+        element_by_id=element_by_id, team_meta=team_meta, report=report,
     )
 
 
@@ -1156,6 +1175,114 @@ def get_state(force_refresh=False) -> EngineState:
     except Exception:  # noqa: BLE001
         pass
     return _STATE
+
+
+# --------------------------------------------------------------------------- #
+# Report card (self-graded, walk-forward accuracy)
+# --------------------------------------------------------------------------- #
+def _best_xi(df, scorecol):
+    """Best valid 11 picked by scorecol (1 GK, 3-5 DEF, 2-5 MID, 1-3 FWD).
+    Returns (rows, actual_points_sum)."""
+    if df is None or df.empty:
+        return df.iloc[0:0] if df is not None else None, 0.0
+    gk = df[df["position"] == "GK"].sort_values(scorecol, ascending=False)
+    de = df[df["position"] == "DEF"].sort_values(scorecol, ascending=False)
+    mi = df[df["position"] == "MID"].sort_values(scorecol, ascending=False)
+    fw = df[df["position"] == "FWD"].sort_values(scorecol, ascending=False)
+    if gk.empty:
+        return df.iloc[0:0], 0.0
+    best = None
+    for nd in range(3, 6):
+        for nm in range(2, 6):
+            for nf in range(1, 4):
+                if nd + nm + nf != 10:
+                    continue
+                if len(de) < nd or len(mi) < nm or len(fw) < nf:
+                    continue
+                sc = (de[scorecol].head(nd).sum() + mi[scorecol].head(nm).sum()
+                      + fw[scorecol].head(nf).sum())
+                if best is None or sc > best[0]:
+                    best = (sc, nd, nm, nf)
+    if best is None:
+        return df.iloc[0:0], 0.0
+    _, nd, nm, nf = best
+    rows = pd.concat([gk.head(1), de.head(nd), mi.head(nm), fw.head(nf)])
+    actual = pd.to_numeric(rows["actual"], errors="coerce").fillna(0).sum()
+    return rows, float(actual)
+
+
+def build_report(cur, players_now, next_gw) -> dict:
+    """Grade the model against reality, gameweek by gameweek, for the live season."""
+    if cur is None or cur.empty:
+        return {}
+    wn = dict(zip(players_now["player_id"], players_now["web_name"]))
+    d = cur.copy()
+    d["gw"] = pd.to_numeric(d["round"], errors="coerce")
+    d = d.dropna(subset=["gw", "pred", "actual"])
+    if d.empty:
+        return {}
+    d["gw"] = d["gw"].astype(int)
+    d["web_name"] = d["element"].map(lambda e: wn.get(int(e)) if pd.notna(e) else None)
+    d["base"] = pd.to_numeric(d.get("total_points_roll3_mean"), errors="coerce")
+    d["base"] = d["base"].fillna(pd.to_numeric(d.get("total_points_lag1"), errors="coerce")).fillna(0.0)
+    d["sel"] = pd.to_numeric(d.get("selected"), errors="coerce").fillna(0.0)
+
+    def _row(r):
+        return {"name": r.web_name or "?", "gw": int(r.gw),
+                "pred": round(float(r.pred), 1), "actual": int(round(float(r.actual)))}
+
+    per = []
+    for gw, g in d.groupby("gw"):
+        mae = float((g["pred"] - g["actual"]).abs().mean())
+        bmae = float((g["base"] - g["actual"]).abs().mean())
+        mxi, mpts = _best_xi(g, "pred")
+        txi, tpts = _best_xi(g, "sel")
+        cap = None
+        if len(mxi):
+            c = mxi.sort_values("pred", ascending=False).iloc[0]
+            cap = {"name": c["web_name"] or "?", "pred": round(float(c["pred"]), 1),
+                   "actual": int(round(float(c["actual"])))}
+        per.append({"gw": int(gw), "n": int(len(g)),
+                    "model_mae": round(mae, 3), "base_mae": round(bmae, 3),
+                    "model_xi": int(round(mpts)), "template_xi": int(round(tpts)),
+                    "captain": cap})
+    per.sort(key=lambda x: x["gw"])
+
+    smae = float((d["pred"] - d["actual"]).abs().mean())
+    sbmae = float((d["base"] - d["actual"]).abs().mean())
+    mxi_tot = sum(p["model_xi"] for p in per)
+    txi_tot = sum(p["template_xi"] for p in per)
+
+    scard = None
+    if per:
+        g0 = per[-1]["gw"]
+        gd = d[d["gw"] == g0]
+        called = gd[gd["pred"] >= 5].sort_values("actual", ascending=False).head(3)
+        wrong = gd[gd["actual"] <= 2].sort_values("pred", ascending=False).head(3)
+        scard = {"gw": g0, "mae": per[-1]["model_mae"], "captain": per[-1]["captain"],
+                 "model_xi": per[-1]["model_xi"], "template_xi": per[-1]["template_xi"],
+                 "hits": [_row(r) for r in called.itertuples()],
+                 "misses": [_row(r) for r in wrong.itertuples()]}
+
+    season_hits = d[d["pred"] >= 5].sort_values("actual", ascending=False).head(5)
+    season_miss = d[(d["pred"] >= 5) & (d["actual"] <= 2)].sort_values("pred", ascending=False).head(5)
+
+    return {
+        "next_gw": int(next_gw),
+        "graded_gws": [p["gw"] for p in per],
+        "per_gw": per,
+        "season": {
+            "model_mae": round(smae, 3),
+            "base_mae": round(sbmae, 3),
+            "pct_better": round((1 - smae / sbmae) * 100, 1) if sbmae else None,
+            "model_xi_total": int(round(mxi_tot)),
+            "template_xi_total": int(round(txi_tot)),
+            "xi_diff": int(round(mxi_tot - txi_tot)),
+        },
+        "scorecard": scard,
+        "season_hits": [_row(r) for r in season_hits.itertuples()],
+        "season_misses": [_row(r) for r in season_miss.itertuples()],
+    }
 
 
 # --------------------------------------------------------------------------- #

@@ -339,6 +339,14 @@ def _profile_insight(pid: int, prof: dict) -> str:
     return text
 
 
+@app.get("/api/report")
+def report_card():
+    """Self-graded accuracy report (walk-forward backtest over the live season)."""
+    st = engine.get_state()
+    return st.report or {"per_gw": [], "season": {}, "next_gw": st.next_gw,
+                         "season_started": st.season_started}
+
+
 @app.get("/api/player/{pid}/profile")
 def player_profile(pid: int):
     st = engine.get_state()
