@@ -16,6 +16,7 @@ Public surface used by the API:
 from __future__ import annotations
 
 import os
+import json
 import time
 import pickle
 import unicodedata
@@ -77,6 +78,10 @@ MODEL_FILE = os.environ.get("FPL_MODEL_FILE", os.path.join(os.path.dirname(__fil
 # are present (better early-season accuracy: it separates "will he play" from "how good").
 START_MODEL_FILE = os.environ.get("FPL_START_MODEL_FILE", os.path.join(os.path.dirname(__file__), "fpl_start_model.json"))
 PTS_MODEL_FILE = os.environ.get("FPL_PTS_MODEL_FILE", os.path.join(os.path.dirname(__file__), "fpl_pts_start_model.json"))
+# Weekly projection snapshots: one gw{N}.json per gameweek, written before the
+# deadline (from Colab), so we can later show projected-vs-actual honestly. Each
+# file: {"gw": N, "built_at": <ts>, "preds": {"<player_id>": <projected_points>}}.
+SNAPSHOT_DIR = os.environ.get("FPL_SNAPSHOT_DIR", os.path.join(os.path.dirname(__file__), "..", "snapshots"))
 
 
 class TwoStageModel:
@@ -122,6 +127,52 @@ def _z(x):
     x = pd.to_numeric(x, errors="coerce")
     sd = x.std(ddof=0)
     return (x - x.mean()) / sd if sd and not np.isnan(sd) else x * 0.0
+
+
+SNAPSHOT_REPO = os.environ.get("FPL_SNAPSHOT_REPO", "husainal1/fpl-predictor-app")
+SNAPSHOT_BRANCH = os.environ.get("FPL_SNAPSHOT_BRANCH", "main")
+
+
+def _parse_snapshot(snap):
+    gw = int(snap.get("gw"))
+    preds = snap.get("preds") or {}
+    return gw, {int(k): round(float(v), 2) for k, v in preds.items() if v is not None}
+
+
+def _load_snapshots(session_get=get_json):
+    """Load every saved weekly projection snapshot into {gw: {player_id: proj}}.
+
+    Reads any local snapshot files first, then pulls the latest from the repo on
+    GitHub, so projections saved each week show up on the next state refresh with
+    no redeploy. Any missing dir / bad file / network hiccup is skipped silently
+    so the app never breaks on snapshots."""
+    out = {}
+    try:
+        for fn in os.listdir(SNAPSHOT_DIR):
+            if not fn.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(SNAPSHOT_DIR, fn)) as fh:
+                    gw, preds = _parse_snapshot(json.load(fh))
+                out[gw] = preds
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001 - dir may not exist yet
+        pass
+    try:
+        listing = session_get(
+            f"https://api.github.com/repos/{SNAPSHOT_REPO}/contents/snapshots?ref={SNAPSHOT_BRANCH}")
+        for item in (listing if isinstance(listing, list) else []):
+            if not str(item.get("name", "")).endswith(".json") or not item.get("download_url"):
+                continue
+            try:
+                gw, preds = _parse_snapshot(session_get(item["download_url"]))
+                out[gw] = preds           # repo copy wins over any stale local file
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001 - no snapshots folder yet, or rate limited
+        pass
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -253,6 +304,8 @@ class EngineState:
     team_meta: dict = field(default_factory=dict)
     # Light current-season feature slice used to grade the Report Card lazily.
     cur_fe: object = None
+    # Saved weekly projection snapshots: {gw: {player_id: projected_points}}.
+    snapshots: dict = field(default_factory=dict)
 
     # ---- served computations ------------------------------------------------
     def _team_strength(self, team):
@@ -1146,6 +1199,7 @@ def build_state(session_get=get_json) -> EngineState:
         team_name_now=team_name_now, cur_strength=cur_strength, recent=recent,
         model=model, metrics=metrics,
         element_by_id=element_by_id, team_meta=team_meta, cur_fe=cur_fe,
+        snapshots=_load_snapshots(),
     )
 
 
@@ -1426,12 +1480,20 @@ def player_profile(state: "EngineState", pid, session_get=get_json) -> Optional[
     def _opp_short(tid):
         return (tm.get(int(tid)) or {}).get("short", "?") if tid is not None else "?"
 
+    snaps = getattr(state, "snapshots", {}) or {}
     log = []
     for h in summ.get("history", []):
+        rnd = h.get("round")
+        proj = None
+        try:
+            proj = (snaps.get(int(rnd)) or {}).get(int(pid))
+        except (TypeError, ValueError):
+            proj = None
         log.append({
-            "gw": h.get("round"),
+            "gw": rnd,
             "opp": _opp_short(h.get("opponent_team")),
             "home": bool(h.get("was_home")),
+            "proj": proj,
             "pts": _num(h.get("total_points")),
             "min": _num(h.get("minutes")),
             "goals": _num(h.get("goals_scored")),
