@@ -280,6 +280,7 @@
   .pmlog td.gw{color:var(--mut);font-weight:700}
   .pmlog td.op{text-align:left}
   .pmlog td.pts{font-weight:800;color:var(--gold)}
+  .pmlog td.proj{color:var(--mut);font-weight:600}
   .pmlog tr.dnp td{color:var(--mut)}
   .pmspark{display:flex;align-items:flex-end;gap:5px;height:46px;margin-top:2px}
   .pmspark .b{flex:1;min-width:10px;background:var(--gold);border-radius:3px 3px 0 0;opacity:.9;position:relative}
@@ -589,13 +590,16 @@ function renderProfile(p, ai){
     const rows=log.map(x=>{
       const dnp=(x.min||0)===0;
       return `<tr class="${dnp?'dnp':''}"><td class="gw">GW${x.gw}</td><td class="op">${esc(x.opp)} (${x.home?"H":"A"})</td>
+        <td class="proj">${x.proj==null?"–":(+x.proj).toFixed(1)}</td>
         <td class="pts">${x.pts==null?"–":x.pts}</td><td>${x.min==null?"–":x.min}'</td>
         <td>${x.goals||0}</td><td>${x.assists||0}</td><td>${x.bonus||0}</td>
         <td>${x.defcon==null?"–":x.defcon}</td>
         <td>${x.xg==null?"–":x.xg}</td><td>${x.xa==null?"–":x.xa}</td></tr>`;
     }).join("");
+    const anyProj=log.some(x=>x.proj!=null);
     logBlock=`<div class="pmsect"><h4>Game log</h4>
-      <table class="pmlog"><thead><tr><th>GW</th><th>Opp</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>Bns</th><th>DefC</th><th>xG</th><th>xA</th></tr></thead>
+      ${anyProj?'<div class="sub" style="color:var(--mut);font-size:12px;margin-bottom:8px">Proj = what the model projected before the gameweek · Pts = actual return</div>':''}
+      <table class="pmlog"><thead><tr><th>GW</th><th>Opp</th><th>Proj</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>Bns</th><th>DefC</th><th>xG</th><th>xA</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }
 
