@@ -355,7 +355,6 @@
     <button data-tab="value">Anomalies</button>
     <button data-tab="stats">Ledger</button>
     <button data-tab="squad">Apex</button>
-    <button data-tab="report">Report Card</button>
     <span class="ctl" id="ctl"></span>
   </nav>
   <div id="tabhead"></div>
@@ -739,9 +738,6 @@ async function render(){
     else if(TAB==="value"){
       await loadValue();
     }
-    else if(TAB==="report"){
-      await loadReport();
-    }
   }catch(e){ view.innerHTML = `<div class="loading">Could not load. Is the API running?</div>`; }
 }
 
@@ -1004,8 +1000,7 @@ const FEATS=[
   ["reckoning","The Reckoning","Import your team for the optimal captain, transfers and chips."],
   ["value","Anomalies","The best points per £m and the low-owned differentials."],
   ["stats","The Ledger","Real season stats — goals, xG, xGI, minutes and more."],
-  ["squad","Apex Projections","The best XI and captain your budget can buy."],
-  ["report","The Report Card","How the model has actually done, graded against real results."]
+  ["squad","Apex Projections","The best XI and captain your budget can buy."]
 ];
 function renderHome(){
   const h=HEALTH||{},m=h.metrics||{};const gw=h.next_gw||"—";
@@ -1016,11 +1011,8 @@ function renderHome(){
      <p class="herometa">Predicting <b>GW${gw}</b>${m.model_mae?` · beats a form-average baseline (${m.model_mae.toFixed(2)} vs ${(m.baseline_mae||0).toFixed(2)} MAE)`:""} · ${h.season_started?"live season data":"pre-season form"}</p>
      <div class="herocta"><button class="cta" onclick="goTab('forecast')">Open the Prime Timeline →</button><button class="cta ghost" onclick="goTab('builder')">Build in the Forge →</button></div>
    </section>
-   <div class="featrow">
-     <div class="feat featured" onclick="goTab('reckoning')">${GLYPH.reckoning||""}<div class="ftxt"><h3>The Reckoning</h3><p>Import your real FPL team for the optimal captain, transfers and chips.</p></div><span class="feat-arrow">→</span></div>
-     <div class="feat featured" onclick="goTab('report')">${GLYPH.report||""}<div class="ftxt"><h3>The Report Card</h3><p>See how the model has actually done, graded against real results.</p></div><span class="feat-arrow">→</span></div>
-   </div>
-   <div class="feats six">${FEATS.filter(f=>f[0]!=="reckoning"&&f[0]!=="report").map(f=>`<div class="feat" onclick="goTab('${f[0]}')">${GLYPH[f[0]]||""}<h3>${esc(f[1])}</h3><p>${esc(f[2])}</p></div>`).join("")}</div>`;
+   <div class="feat featured" onclick="goTab('reckoning')">${GLYPH.reckoning||""}<div class="ftxt"><h3>The Reckoning</h3><p>Import your real FPL team for the optimal captain, transfers, chip strategies and a 3-gameweek plan.</p></div><span class="feat-arrow">→</span></div>
+   <div class="feats six">${FEATS.filter(f=>f[0]!=="reckoning").map(f=>`<div class="feat" onclick="goTab('${f[0]}')">${GLYPH[f[0]]||""}<h3>${esc(f[1])}</h3><p>${esc(f[2])}</p></div>`).join("")}</div>`;
 }
 
 /* ------------------------- value (list first, chart optional) ------------------------- */
