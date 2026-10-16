@@ -134,8 +134,22 @@ def predictions(limit: int = 50, position: str = None):
         d = d[d["position"] == position.upper()]
     players = _add_crest(_records(d.head(limit), PRED_COLS))
     fn = dict(zip(st.players_now["player_id"], st.players_now["full_name"]))
+    eb = getattr(st, "element_by_id", {}) or {}
     for p in players:
         p["full_name"] = fn.get(p.get("player_id"), p.get("web_name"))
+        # Model momentum: projected points vs the player's recent-form average
+        # (FPL "form" = avg points over the last ~4 matches; fall back to season
+        # points-per-game). Positive => the model sees them heating up.
+        e = eb.get(p.get("player_id")) or {}
+        base = e.get("form")
+        if base is None or base == 0:
+            base = e.get("points_per_game")
+        pred = p.get("pred_points")
+        if base is not None and pred is not None:
+            p["mom"] = round(float(pred) - float(base), 2)
+            p["mom_base"] = round(float(base), 1)
+        else:
+            p["mom"] = None
     return {"next_gw": st.next_gw, "players": players}
 
 
