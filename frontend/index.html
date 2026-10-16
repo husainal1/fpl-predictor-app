@@ -345,12 +345,20 @@
   /* ---- masthead ---- */
   header{padding:0;max-width:none;margin:0}
   .masthead{max-width:1000px;margin:0 auto;padding:0 18px}
-  .ticker{display:flex;white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line);
-    font:600 11px/1 var(--mono);letter-spacing:.04em;margin:0 -18px;position:relative}
-  .ticker .tk{padding:8px 15px;border-right:1px solid var(--soft);color:var(--mut);flex:none}
-  .ticker .tk b{color:var(--txt);font-weight:600}
-  .ticker .up{color:var(--acc2)} .ticker .dn{color:#d9736a}
+  .ticker{overflow:hidden;border-bottom:1px solid var(--line);margin:0 -18px;position:relative;
+    font:600 11px/1 var(--mono);letter-spacing:.04em}
   .ticker:empty{display:none}
+  .ticker::before,.ticker::after{content:"";position:absolute;top:0;bottom:0;width:36px;z-index:2;pointer-events:none}
+  .ticker::before{left:0;background:linear-gradient(90deg,var(--bg),transparent)}
+  .ticker::after{right:0;background:linear-gradient(270deg,var(--bg),transparent)}
+  .tktrack{display:inline-flex;white-space:nowrap;will-change:transform;animation:tickerscroll 90s linear infinite}
+  .ticker:hover .tktrack{animation-play-state:paused}
+  .tk{padding:8px 15px;border-right:1px solid var(--soft);color:var(--mut);flex:none;cursor:pointer}
+  .tk:hover{color:var(--txt)}
+  .tk b{color:var(--txt);font-weight:600}
+  .tk .up{color:var(--acc2)} .tk .dn{color:#d9736a} .tk .fl{color:var(--mut)}
+  @keyframes tickerscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  @media(prefers-reduced-motion:reduce){.tktrack{animation:none}.ticker{overflow-x:auto}}
   .mastrow{display:flex;align-items:center;gap:12px;padding:18px 0 12px;position:relative}
   .mark-r{color:var(--gold-deep);font-size:17px;letter-spacing:.2em;margin-right:2px}
   .goldrule{height:2px;background:linear-gradient(90deg,var(--gold-deep),var(--gold) 50%,var(--gold-deep));margin:0 -18px 0}
@@ -541,18 +549,26 @@ async function boot(){
   render();
   loadTicker();
 }
-// Live projection ticker across the masthead (top scorers this GW).
+// Live projection ticker: scrolls the top 50 by projected points, with the
+// model's momentum (projected vs the player's recent-form average) as the
+// arrow: green up heating up, red down cooling off.
 async function loadTicker(){
   const el=document.getElementById("ticker"); if(!el) return;
   try{
-    const d=await gc("/api/predictions?limit=14");
-    const ps=(d.players||[]).slice(0,14);
+    const d=await gc("/api/predictions?limit=50");
+    const ps=(d.players||[]).slice(0,50);
     if(!ps.length) return;
-    el.innerHTML=ps.map(p=>{
-      const v=(+p.pred_points||0).toFixed(2);
-      const up=(+p.pred_points||0)>=4;
-      return `<span class="tk" data-pid="${p.player_id}" style="cursor:pointer">${esc((p.web_name||"").toUpperCase())} <b>${v}</b><span class="${up?'up':'dn'}"> ${up?'▲':'▼'}</span></span>`;
+    const items=ps.map(p=>{
+      const v=(+p.pred_points||0).toFixed(2), m=p.mom;
+      let cls="fl", arr="·", mtxt="";
+      if(m!=null){
+        if(m>=0.75){ cls="up"; arr="▲"; mtxt=" +"+(+m).toFixed(1); }
+        else if(m<=-0.75){ cls="dn"; arr="▼"; mtxt=" "+(+m).toFixed(1); }
+      }
+      const tip=(m!=null&&p.mom_base!=null)?` title="Projected ${v} vs recent average ${p.mom_base}"`:"";
+      return `<span class="tk" data-pid="${p.player_id}"${tip}>${esc((p.web_name||"").toUpperCase())} <b>${v}</b> <span class="${cls}">${arr}${mtxt}</span></span>`;
     }).join("");
+    el.innerHTML=`<div class="tktrack">${items}${items}</div>`;
   }catch(e){}
 }
 
