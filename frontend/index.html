@@ -3,11 +3,16 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LokiFPL — predict the chaos</title>
+<title>LokiFPL · predict the chaos</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2054'%3E%3Cg%20fill='none'%20stroke='%23e6be5a'%20stroke-width='4'%20stroke-linecap='round'%20stroke-linejoin='miter'%3E%3Cpolyline%20points='30,43%2024,30%2022,34%2015,17%2012,21%207,5'/%3E%3Cpolyline%20points='34,43%2040,30%2042,34%2049,17%2052,21%2057,5'/%3E%3C/g%3E%3Crect%20x='20'%20y='42'%20width='24'%20height='9'%20rx='3'%20fill='%23e6be5a'/%3E%3Cpolygon%20points='27,42.5%2032,49%2037,42.5'%20fill='%2333b06a'/%3E%3C/svg%3E"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#0a0f0b;--card:#111a13;--line:#243528;--txt:#edf2ea;--mut:#8ba394;--acc:#33b06a;--acc2:#4fc98a;--gold:#e6be5a;--pitch:#123a1e;--pitch2:#0f2f18;--thead:#0f1712;--hover:#12201a;--active:#15271b;--soft:#0f1712;}
-  html[data-theme="light"]{--bg:#f3f6f2;--card:#ffffff;--line:#dde7de;--txt:#12211a;--mut:#5c7266;--acc:#1f9e5e;--acc2:#1f8f56;--gold:#b8892a;--thead:#eef3ee;--hover:#f0f5f0;--active:#e4f0e7;--soft:#eef3ee;}
+  :root{--bg:#0a0b08;--card:#101108;--line:#282a1c;--txt:#ece7d8;--mut:#8c8c80;--acc:#5bbd79;--acc2:#86d08f;--gold:#e4ba4a;--gold-deep:#8a6d23;--gold-faint:#241d0c;--pitch:#123a1e;--pitch2:#0f2f18;--thead:#0c0d08;--hover:#0e0f0a;--active:#17130a;--soft:#0e0f0a;
+    --serif:"Fraunces","Iowan Old Style",Palatino,Georgia,serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  html[data-theme="light"]{--bg:#f4f1e8;--card:#fffdf7;--line:#e2dcc9;--txt:#23201a;--mut:#6a6454;--acc:#1f9e5e;--acc2:#1f8f56;--gold:#9c7620;--gold-deep:#c3a53b;--gold-faint:#efe7d2;--thead:#efe8dd;--hover:#f0ece0;--active:#efe7d2;--soft:#f0ece0;}
   html,body{transition:background .2s,color .2s}
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
@@ -327,35 +332,128 @@
     .pmcards{grid-template-columns:repeat(auto-fill,minmax(76px,1fr))}
     .featrow{grid-template-columns:1fr}
   }
+
+  /* ============================================================
+     MYTHIC DATA ALMANAC · type, masthead, ticker, nav, home
+     ============================================================ */
+  h1,h2,h3{font-family:var(--serif)}
+  .wm{font-family:var(--serif);font-weight:700;letter-spacing:.005em}
+  /* numerals & data surfaces -> mono, tabular */
+  table.fc,table.rc,.pmlog,.ticker,.statband .n,.ch .no,.ch .st,
+  .rc-tile .v,.pmproj .n,.bp-proj,.pmstat .v{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* ---- masthead ---- */
+  header{padding:0;max-width:none;margin:0}
+  .masthead{max-width:1000px;margin:0 auto;padding:0 18px}
+  .ticker{display:flex;white-space:nowrap;overflow:hidden;border-bottom:1px solid var(--line);
+    font:600 11px/1 var(--mono);letter-spacing:.04em;margin:0 -18px;position:relative}
+  .ticker .tk{padding:8px 15px;border-right:1px solid var(--soft);color:var(--mut);flex:none}
+  .ticker .tk b{color:var(--txt);font-weight:600}
+  .ticker .up{color:var(--acc2)} .ticker .dn{color:#d9736a}
+  .ticker:empty{display:none}
+  .mastrow{display:flex;align-items:center;gap:12px;padding:18px 0 12px;position:relative}
+  .mark-r{color:var(--gold-deep);font-size:17px;letter-spacing:.2em;margin-right:2px}
+  .goldrule{height:2px;background:linear-gradient(90deg,var(--gold-deep),var(--gold) 50%,var(--gold-deep));margin:0 -18px 0}
+  .sub{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em}
+
+  /* ---- nav as runic index ---- */
+  nav{gap:2px;margin:14px 0 2px}
+  nav button{background:transparent;border:1px solid transparent;border-radius:6px;color:var(--mut);
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;padding:8px 11px}
+  nav button .nr{color:var(--gold-deep);margin-right:7px}
+  nav button:hover{border-color:var(--line);color:var(--txt)}
+  nav button.active{background:var(--gold-faint);border-color:var(--gold-deep);color:var(--gold);font-weight:700}
+  nav button.active .nr{color:var(--gold)}
+  html[data-theme="light"] nav button.active{color:var(--gold)}
+
+  /* ---- per-tab intro ---- */
+  .tabhead .thname{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:.01em}
+  .tabhead .glyph{width:24px;height:24px}
+
+  /* ---- home: hero (codex) ---- */
+  .hero{padding:44px 16px 20px;max-width:720px}
+  .hero .kick{font-family:var(--mono);font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:12px}
+  .hero .runes{color:var(--gold-deep);letter-spacing:.42em;font-size:16px;margin:0 0 10px}
+  .hero h2{font-family:var(--serif);font-weight:400;font-size:clamp(30px,5.2vw,50px);line-height:1.04;letter-spacing:.005em}
+  .hero h2 em{font-style:italic;color:var(--gold)}
+  .hero .lead{font-size:16px;line-height:1.62;margin-top:16px}
+  .hero .herometa{font-family:var(--mono);font-size:12px;letter-spacing:.03em}
+  .cta{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.05em;border-radius:5px}
+  .cta:not(.ghost){background:linear-gradient(180deg,#ecc659,#c89a34);color:#120d02;
+    box-shadow:0 1px 0 #f3d987 inset,0 -2px 0 #9a7220 inset}
+  .cta.ghost{color:var(--gold);border:1.5px solid var(--gold-deep);background:transparent}
+
+  /* ---- home: stat band ---- */
+  .statband{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);max-width:920px;margin:22px auto 0}
+  .statband div{padding:16px 14px;text-align:center;border-right:1px solid var(--line)}
+  .statband div:last-child{border-right:0}
+  .statband .n{font-size:28px;color:var(--gold);line-height:1}
+  .statband .n.g{color:var(--acc2)}
+  .statband .l{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase;margin-top:7px}
+
+  /* ---- home: chapters index (replaces feature cards) ---- */
+  .chapters{max-width:920px;margin:6px auto 0;padding:0 2px}
+  .ch-head{display:flex;align-items:baseline;justify-content:space-between;padding:24px 0 2px}
+  .ch-head h3{font-family:var(--mono);font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--mut);margin:0;font-weight:600}
+  .ch-head .sp{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+  .ch{display:grid;grid-template-columns:30px 20px 1fr auto;gap:15px;align-items:baseline;
+    padding:16px 6px;border-top:1px solid var(--line);cursor:pointer;text-align:left;width:100%;
+    background:transparent;border-left:0;border-right:0;border-bottom:0;color:inherit}
+  .ch:hover{background:var(--hover)}
+  .ch .no{color:var(--gold-deep);font-size:12px;letter-spacing:.06em;font-weight:600}
+  .ch .rr{color:var(--gold);font-size:18px;line-height:1}
+  .ch .ti{font-family:var(--serif);font-size:20px;font-weight:600;letter-spacing:.01em}
+  .ch .de{color:var(--mut);font-size:13.5px;margin-top:3px;line-height:1.45}
+  .ch .st{color:var(--mut);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;text-align:right;white-space:nowrap;line-height:1.5}
+  @media(max-width:560px){.statband{grid-template-columns:1fr 1fr}.ch .st{display:none}.ch{grid-template-columns:26px 18px 1fr}}
+
+  /* ---- data tables: almanac finish ---- */
+  table.fc thead th,table.rc thead th{font-family:var(--mono);letter-spacing:.1em}
+  table.fc .pnm,table.rc td.pl .pnm{font-family:var(--serif);font-size:15px;font-weight:600}
+  .bp-lnm,.pmhname,.rc-sr .nm{font-family:var(--serif)}
+  .bp-nm{font-family:var(--serif)}
+  /* profile header: codex gradient already; serif name + mono proj */
+  .pmhname{font-family:var(--serif);font-weight:700}
+  .pmproj .n{font-family:var(--mono)}
+  .pmsect h4{font-family:var(--mono);letter-spacing:.2em;color:var(--gold-deep)}
+  /* footer */
+  .sitefoot{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand">
-    <svg class="logo" viewBox="0 0 64 54" aria-label="LokiFPL">
-      <g fill="none" stroke="var(--gold)" stroke-width="4" stroke-linecap="round" stroke-linejoin="miter">
-        <polyline points="30,43 24,30 22,34 15,17 12,21 7,5"/>
-        <polyline points="34,43 40,30 42,34 49,17 52,21 57,5"/>
-      </g>
-      <circle cx="7" cy="5" r="2.4" fill="var(--gold)"/><circle cx="57" cy="5" r="2.4" fill="var(--gold)"/>
-      <rect x="20" y="42" width="24" height="9" rx="3" fill="var(--gold)"/>
-      <polygon points="27,42.5 32,49 37,42.5" fill="var(--acc)"/>
-    </svg>
-    <div class="wm">Loki<span>FPL</span></div>
+  <div class="masthead">
+    <div class="ticker" id="ticker"></div>
+    <div class="mastrow">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 64 54" aria-label="LokiFPL">
+          <g fill="none" stroke="var(--gold)" stroke-width="4" stroke-linecap="round" stroke-linejoin="miter">
+            <polyline points="30,43 24,30 22,34 15,17 12,21 7,5"/>
+            <polyline points="34,43 40,30 42,34 49,17 52,21 57,5"/>
+          </g>
+          <circle cx="7" cy="5" r="2.4" fill="var(--gold)"/><circle cx="57" cy="5" r="2.4" fill="var(--gold)"/>
+          <rect x="20" y="42" width="24" height="9" rx="3" fill="var(--gold)"/>
+          <polygon points="27,42.5 32,49 37,42.5" fill="var(--acc)"/>
+        </svg>
+        <div class="wm"><span class="mark-r">ᛚ</span>Loki<span>FPL</span></div>
+      </div>
+      <button id="themeToggle" class="themebtn" style="margin-left:auto" onclick="toggleTheme()">Dark</button>
+    </div>
+    <div class="sub" id="sub">Loading model…</div>
+    <div class="goldrule" style="margin-top:12px"></div>
   </div>
-  <div class="sub" id="sub">Loading model…</div>
-  <button id="themeToggle" class="themebtn" style="position:absolute;top:22px;right:18px" onclick="toggleTheme()">Dark</button>
 </header>
 <main>
   <nav>
-    <button data-tab="home" class="active">Home</button>
-    <button data-tab="forecast">Prime Timeline</button>
-    <button data-tab="picks">Blueprint</button>
-    <button data-tab="builder">Forge</button>
-    <button data-tab="reckoning">Reckoning</button>
-    <button data-tab="value">Anomalies</button>
-    <button data-tab="stats">Ledger</button>
-    <button data-tab="squad">Apex</button>
+    <button data-tab="home" class="active"><span class="nr">✦</span>Home</button>
+    <button data-tab="forecast"><span class="nr">ᚠ</span>Prime Timeline</button>
+    <button data-tab="picks"><span class="nr">ᛉ</span>Blueprint</button>
+    <button data-tab="builder"><span class="nr">ᛏ</span>Forge</button>
+    <button data-tab="reckoning"><span class="nr">ᛟ</span>Reckoning</button>
+    <button data-tab="value"><span class="nr">ᛊ</span>Anomalies</button>
+    <button data-tab="stats"><span class="nr">ᛇ</span>Ledger</button>
+    <button data-tab="squad"><span class="nr">ᚨ</span>Apex</button>
     <span class="ctl" id="ctl"></span>
   </nav>
   <div id="tabhead"></div>
@@ -385,7 +483,7 @@ const FC = { weeks:5, pos:"ALL", shown:25, data:null, gws:[], q:"" };  // points
 const SQUAD_LIMITS = {GK:2, DEF:5, MID:5, FWD:3};
 const BUDGET = 100.0;
 
-// Brand glyphs — simple line-art, no emoji. currentColor = gold.
+// Brand glyphs · simple line-art, no emoji. currentColor = gold.
 const GLYPH = {
   forecast:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,17 6,11 9,14 13,6 16,9 22,2"/></svg>`,
   picks:`<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>`,
@@ -398,13 +496,13 @@ const GLYPH = {
 };
 const TABMETA = {
   forecast:["The Prime Timeline","Every player's points, projected gameweek by gameweek across the weeks ahead."],
-  picks:["The Blueprint","This week's highest projected scorers — the core of any team, with an AI take on each."],
+  picks:["The Blueprint","This week's highest projected scorers · the core of any team, with an AI take on each."],
   builder:["The Forge","Build and price a full 15-man squad by hand, within budget and the FPL squad rules."],
   value:["Anomalies","The best points per £m and the low-owned differentials most managers are missing."],
-  stats:["The Ledger","Real season stats so far — goals, assists, xG, xGI, minutes, bonus and more."],
+  stats:["The Ledger","Real season stats so far · goals, assists, xG, xGI, minutes, bonus and more."],
   squad:["Apex Projections","The single best XI and captain your £100m can buy for this gameweek."],
   reckoning:["The Reckoning","Import your real FPL team and get the optimal captain, transfers and chip calls."],
-  report:["The Report Card","How the model has actually done — graded against real results, gameweek by gameweek."]
+  report:["The Report Card","How the model has actually done · graded against real results, gameweek by gameweek."]
 };
 function setTabHead(tab){
   const el=document.getElementById("tabhead"); if(!el) return;
@@ -438,9 +536,24 @@ function kitImg(p, cls){
 async function boot(){
   try{ const h = await g("/health"); HEALTH=h;
     const m = h.metrics||{};
-    sub.innerHTML = `Predicting <b>GW${h.next_gw}</b> · model MAE ${m.model_mae?.toFixed(2)??"—"} vs baseline ${m.baseline_mae?.toFixed(2)??"—"} · ${h.season_started?"live season":"pre-season (last seasons' form)"}`;
+    sub.innerHTML = `Predicting <b>GW${h.next_gw}</b> · model MAE ${m.model_mae?.toFixed(2)??"–"} vs baseline ${m.baseline_mae?.toFixed(2)??"–"} · ${h.season_started?"live season":"pre-season (last seasons' form)"}`;
   }catch(e){ sub.textContent="API not reachable."; }
   render();
+  loadTicker();
+}
+// Live projection ticker across the masthead (top scorers this GW).
+async function loadTicker(){
+  const el=document.getElementById("ticker"); if(!el) return;
+  try{
+    const d=await gc("/api/predictions?limit=14");
+    const ps=(d.players||[]).slice(0,14);
+    if(!ps.length) return;
+    el.innerHTML=ps.map(p=>{
+      const v=(+p.pred_points||0).toFixed(2);
+      const up=(+p.pred_points||0)>=4;
+      return `<span class="tk" data-pid="${p.player_id}" style="cursor:pointer">${esc((p.web_name||"").toUpperCase())} <b>${v}</b><span class="${up?'up':'dn'}"> ${up?'▲':'▼'}</span></span>`;
+    }).join("");
+  }catch(e){}
 }
 
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
@@ -807,7 +920,7 @@ function renderBuilder(){
      <div class="pool">
        <input id="sbsearch" placeholder="Search any player by name…" value="${esc(SBQ)}" oninput="sbSearch(this.value)" style="width:100%;margin-bottom:6px">
        <div class="posfilter row" style="margin-bottom:6px">${posBtns}</div>
-       <div class="muted" id="poolhint" style="font-size:12px;margin-bottom:4px">${SBQ.trim()?"Search results":("Top "+POOL_POS+" by predicted points")} — tap + to add</div>
+       <div class="muted" id="poolhint" style="font-size:12px;margin-bottom:4px">${SBQ.trim()?"Search results":("Top "+POOL_POS+" by predicted points")} · tap + to add</div>
        <div id="sbpool">${poolRowsHTML()}</div></div></div>`;
 }
 
@@ -829,7 +942,7 @@ function poolRowsHTML(){
 }
 window.renderPool = ()=>{
   const el=document.getElementById("sbpool"); if(el) el.innerHTML=poolRowsHTML();
-  const h=document.getElementById("poolhint"); if(h) h.textContent=(SBQ.trim()?"Search results":("Top "+POOL_POS+" by predicted points"))+" — tap + to add";
+  const h=document.getElementById("poolhint"); if(h) h.textContent=(SBQ.trim()?"Search results":("Top "+POOL_POS+" by predicted points"))+" · tap + to add";
 };
 window.sbSearch = (q)=>{ SBQ=q; renderPool(); };
 
@@ -947,19 +1060,19 @@ function rcScoreRows(arr, cls){
 function renderReport(d){
   const per=d.per_gw||[], s=d.season||{};
   if(!per.length){
-    view.innerHTML=`<div class="rc-card"><h3>The grades are coming.</h3><div class="sub">Once gameweek ${d.next_gw||1} is played, LokiFPL starts grading every projection against real results — hits and misses both. Check back after the first results land.</div></div>`;
+    view.innerHTML=`<div class="rc-card"><h3>The grades are coming.</h3><div class="sub">Once gameweek ${d.next_gw||1} is played, LokiFPL starts grading every projection against real results · hits and misses both. Check back after the first results land.</div></div>`;
     return;
   }
-  const pct=s.pct_better!=null?`+${s.pct_better}%`:"—";
-  const xiDiff=s.xi_diff!=null?(s.xi_diff>=0?`+${s.xi_diff}`:`${s.xi_diff}`):"—";
+  const pct=s.pct_better!=null?`+${s.pct_better}%`:"–";
+  const xiDiff=s.xi_diff!=null?(s.xi_diff>=0?`+${s.xi_diff}`:`${s.xi_diff}`):"–";
   const tiles=`<div class="rc-tiles">
-    <div class="rc-tile"><div class="v gold">${s.model_mae!=null?s.model_mae.toFixed(2):"—"}</div><div class="k">Season MAE</div><div class="s">avg points off per player / GW</div></div>
-    <div class="rc-tile"><div class="v acc">${pct}</div><div class="k">vs baseline</div><div class="s">better than a form-average model (${s.base_mae!=null?s.base_mae.toFixed(2):"—"})</div></div>
+    <div class="rc-tile"><div class="v gold">${s.model_mae!=null?s.model_mae.toFixed(2):"–"}</div><div class="k">Season MAE</div><div class="s">avg points off per player / GW</div></div>
+    <div class="rc-tile"><div class="v acc">${pct}</div><div class="k">vs baseline</div><div class="s">better than a form-average model (${s.base_mae!=null?s.base_mae.toFixed(2):"–"})</div></div>
     <div class="rc-tile"><div class="v ${s.xi_diff>=0?'acc':''}">${xiDiff}</div><div class="k">Model XI vs Template</div><div class="s">points vs the most-owned side</div></div>
   </div>`;
 
   const chart=`<div class="rc-card"><h3>Accuracy by gameweek</h3>
-    <div class="sub">Mean absolute error each week — lower is better. Model vs a form-average baseline.</div>
+    <div class="sub">Mean absolute error each week · lower is better. Model vs a form-average baseline.</div>
     ${rcChart(per)}
     <div class="rc-legend"><span class="k"><span class="rc-sw" style="background:var(--gold)"></span> LokiFPL model</span>
     <span class="k"><span class="rc-sw" style="background:var(--mut)"></span> Baseline</span>
@@ -987,7 +1100,7 @@ function renderReport(d){
 
   const hm=(arr,verdict)=>arr.map(p=>`<tr><td class="pl" style="font-weight:700">${esc(p.name)}</td><td>GW${p.gw}</td><td>${p.pred}</td><td>${p.actual}</td><td><span class="rc-pill ${verdict==='Hit'?'hit':''}">${verdict}</span></td></tr>`).join("");
   const hmCard=((d.season_hits&&d.season_hits.length)||(d.season_misses&&d.season_misses.length))?`<div class="rc-card"><h3>Season's biggest hits &amp; misses</h3>
-    <div class="sub">The calls the model got most right and most wrong — kept honest.</div>
+    <div class="sub">The calls the model got most right and most wrong · kept honest.</div>
     <table class="rc"><thead><tr><th class="pl">Player</th><th>GW</th><th>Projected</th><th>Actual</th><th>Verdict</th></tr></thead>
     <tbody>${hm(d.season_hits||[],'Hit')}${hm(d.season_misses||[],'Miss')}</tbody></table></div>`:"";
 
@@ -997,26 +1110,45 @@ function renderReport(d){
 
 /* ------------------------- landing / home ------------------------- */
 window.goTab=(t)=>{TAB=t;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.tab===t));render();};
-const FEATS=[
-  ["forecast","The Prime Timeline","Every player's points, projected gameweek by gameweek."],
-  ["picks","The Blueprint","This week's highest projected scorers, each with an AI take."],
-  ["builder","The Forge","Build and price a full 15-man squad by hand."],
-  ["reckoning","The Reckoning","Import your team for the optimal captain, transfers and chips."],
-  ["value","Anomalies","The best points per £m and the low-owned differentials."],
-  ["stats","The Ledger","Real season stats — goals, xG, xGI, minutes and more."],
-  ["squad","Apex Projections","The best XI and captain your budget can buy."]
+// Chapters: [tab, rune, roman, title, blurb, stat-line-1, stat-line-2]
+const CHAPTERS=[
+  ["forecast","ᚠ","I","The Prime Timeline","Every player's points, projected gameweek by gameweek.","730 players","6 gameweeks"],
+  ["picks","ᛉ","II","The Blueprint","This week's highest projected scorers, each with an AI read.","Top 20","+ captain"],
+  ["builder","ᛏ","III","The Forge","Build and price a full 15-man squad by hand.","£100.0m","15 picks"],
+  ["reckoning","ᛟ","IV","The Reckoning","Import your real squad for the optimal captain, transfers and chips.","MILP solver","3-GW plan"],
+  ["value","ᛊ","V","Anomalies","The best points per £m and the low-owned differentials.","Value","under 10% owned"],
+  ["stats","ᛇ","VI","The Ledger","Real season stats: goals, xG, xGI, minutes and more.","Full season","per-90 toggle"],
+  ["squad","ᚨ","VII","Apex Projections","The single best XI and captain your budget can buy.","Best XI","+ captain"]
 ];
+const ROMAN=["","I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
+const toRoman=n=>ROMAN[n]|| (""+n);
 function renderHome(){
-  const h=HEALTH||{},m=h.metrics||{};const gw=h.next_gw||"—";
+  const h=HEALTH||{},m=h.metrics||{};
+  const gw=h.next_gw||"–", gwR=h.next_gw?toRoman(+h.next_gw):"–";
+  const mae=m.model_mae!=null?m.model_mae.toFixed(2):"–";
+  const base=m.baseline_mae!=null?m.baseline_mae.toFixed(2):"–";
+  const chapters=CHAPTERS.map(c=>`<button class="ch" onclick="goTab('${c[0]}')">
+      <span class="no">${c[2]}</span><span class="rr">${c[1]}</span>
+      <span><span class="ti">${esc(c[3])}</span><span class="de">${esc(c[4])}</span></span>
+      <span class="st">${esc(c[5])}<br>${esc(c[6])}</span></button>`).join("");
   view.innerHTML=`
    <section class="hero">
-     <h2>The game is chaotic. Embrace the mischief.</h2>
-     <p class="lead">LokiFPL turns three seasons of Premier League data into point projections for every player — so you pick, build and captain on numbers, not hunches, and exploit the chaos everyone else is guessing at.</p>
-     <p class="herometa">Predicting <b>GW${gw}</b>${m.model_mae?` · beats a form-average baseline (${m.model_mae.toFixed(2)} vs ${(m.baseline_mae||0).toFixed(2)} MAE)`:""} · ${h.season_started?"live season data":"pre-season form"}</p>
+     <div class="kick">No. ${gwR} · The Chaos Index</div>
+     <div class="runes">ᚠ ᛉ ᛏ ᛟ ᛊ ᚨ</div>
+     <h2>The game is chaotic.<br><em>Embrace the mischief.</em></h2>
+     <p class="lead">LokiFPL binds three seasons of Premier League data into a single point projection for every player, so you pick, build and captain on numbers, not hunches, and turn the chaos to your favour.</p>
+     <p class="herometa">Predicting <b>GW${gw}</b> · ${h.season_started?"live season data":"pre-season form"}</p>
      <div class="herocta"><button class="cta" onclick="goTab('forecast')">Open the Prime Timeline →</button><button class="cta ghost" onclick="goTab('builder')">Build in the Forge →</button></div>
    </section>
-   <div class="feat featured" onclick="goTab('reckoning')">${GLYPH.reckoning||""}<div class="ftxt"><h3>The Reckoning</h3><p>Import your real FPL team for the optimal captain, transfers, chip strategies and a 3-gameweek plan.</p></div><span class="feat-arrow">→</span></div>
-   <div class="feats six">${FEATS.filter(f=>f[0]!=="reckoning").map(f=>`<div class="feat" onclick="goTab('${f[0]}')">${GLYPH[f[0]]||""}<h3>${esc(f[1])}</h3><p>${esc(f[2])}</p></div>`).join("")}</div>`;
+   <div class="statband">
+     <div><div class="n g">${mae}</div><div class="l">Model MAE</div></div>
+     <div><div class="n">${base}</div><div class="l">Form baseline</div></div>
+     <div><div class="n">730</div><div class="l">Players projected</div></div>
+   </div>
+   <div class="chapters">
+     <div class="ch-head"><h3>The Chapters</h3><span class="sp">GW${gw} onward</span></div>
+     ${chapters}
+   </div>`;
 }
 
 /* ------------------------- value (list first, chart optional) ------------------------- */
@@ -1096,7 +1228,7 @@ function rckVerdict(r){
         ${c.buildable?` <button class="why" onclick="rckChip('${c.buildable}',this)">Show the optimal team →</button>`:""}
         <div class="chipteam"></div></div>`).join("") : "";
   const cap=r.captain, vice=r.vice;
-  const capv = cap?`${esc(cap.web_name)}${vice?` <span class="muted" style="font-size:12px">(VC ${esc(vice.web_name)})</span>`:""}`:"—";
+  const capv = cap?`${esc(cap.web_name)}${vice?` <span class="muted" style="font-size:12px">(VC ${esc(vice.web_name)})</span>`:""}`:"–";
   return `<div class="verdict"><h3>The verdict</h3>${esc(r.verdict||"")}</div>
     <div class="rck-stat">
       ${stat("Captain", capv, "gold")}
@@ -1114,8 +1246,8 @@ function renderReckoning(){
       <div class="body">Your team ID is a public number in your team's web address. To get it:
       <ol>
         <li>Go to <b>fantasy.premierleague.com</b> and log in.</li>
-        <li>Open the <b>Points</b> tab — or the <b>Pick Team</b> tab and then click <b>Gameweek history</b>. (Pick Team on its own won't show the number.)</li>
-        <li>Look at the address bar — you'll see <code>…/entry/1234567/event/3</code>. The number straight after <code>/entry/</code> is your team ID.</li>
+        <li>Open the <b>Points</b> tab · or the <b>Pick Team</b> tab and then click <b>Gameweek history</b>. (Pick Team on its own won't show the number.)</li>
+        <li>Look at the address bar · you'll see <code>…/entry/1234567/event/3</code>. The number straight after <code>/entry/</code> is your team ID.</li>
         <li>Copy that number in and hit <b>Load my team</b>.</li>
       </ol>
       On the mobile app, tap the team menu and choose "View on web" to see the same address.</div></details>`;
@@ -1137,7 +1269,7 @@ function renderReckoning(){
       html+=`<div class="sec-h">Your current squad</div>`+rckPitch(t.squad,false);
     }
     html+=`<div class="sec-h">Multi-gameweek plans</div>
-      <div class="muted" style="font-size:12.5px;margin-bottom:8px">Three strategies across the next 3 gameweeks — Patient, Balanced and Aggressive. Takes a few seconds to crunch.</div>
+      <div class="muted" style="font-size:12.5px;margin-bottom:8px">Three strategies across the next 3 gameweeks · Patient, Balanced and Aggressive. Takes a few seconds to crunch.</div>
       <button class="rck-run" style="margin-left:0" onclick="rckPlan(this)">Build my 3-GW plan</button>
       <div id="rckplan" style="margin-top:10px"></div>`;
   }
@@ -1182,7 +1314,7 @@ window.rckChip=async (chip,btn)=>{
 function planCard(p, best){
   const rows=p.gws.map(g=>{
     let body;
-    if(!g.moves||!g.moves.length) body=`<span class="pg-roll">Roll — bank the transfer</span>`;
+    if(!g.moves||!g.moves.length) body=`<span class="pg-roll">Roll · bank the transfer</span>`;
     else body=g.moves.map(m=>`<span class="o">${esc(m.out.web_name)}</span> → <span class="i">${esc(m.in.web_name)}</span>`).join(", ")+(g.hit?`<span class="pg-hit">−${g.hit}</span>`:"");
     return `<div class="pg"><span class="pg-gw">GW${g.gw}</span><span class="pg-body">${body}</span><span class="pg-pts">${num(g.points)}</span></div>`;
   }).join("");
