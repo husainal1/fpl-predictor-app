@@ -50,7 +50,7 @@ VALID_POS = ["GK", "DEF", "MID", "FWD"]
 
 BASE_COLS = ["total_points", "minutes", "goals_scored", "assists", "ict_index",
              "creativity", "influence", "threat", "expected_goals",
-             "expected_assists", "expected_goal_involvements"]
+             "expected_assists", "expected_goal_involvements", "starts"]
 
 FEATURES = ([f"{c}_lag{L}" for c in BASE_COLS for L in LAGS] +
             [f"{c}_roll{W}_mean" for c in BASE_COLS for W in WINDOWS] +
@@ -64,8 +64,15 @@ FORM_COLS = ([f"{c}_lag{L}" for c in BASE_COLS for L in LAGS] +
 
 KEEP = ["total_points", "minutes", "goals_scored", "assists", "ict_index",
         "creativity", "influence", "threat", "expected_goals", "expected_assists",
-        "expected_goal_involvements", "expected_goals_conceded", "team_h_score",
+        "expected_goal_involvements", "expected_goals_conceded",
+        "defensive_contribution", "starts", "team_h_score",
         "team_a_score", "was_home", "kickoff_time", "round"]
+
+# Defensive Contribution (DefCon) scoring, introduced in 2025-26. A player earns 2
+# points for clearing a defensive-action threshold: 10 for defenders, 12 for mid/fwd.
+DEFCON_SEASONS = {"2025-26", "2026-27"}
+DC_THRESH = {"DEF": 10, "MID": 12, "FWD": 12, "GK": 999}
+DC_ALPHA = 4.0
 
 CACHE_PATH = os.environ.get("FPL_CACHE_PATH", "/tmp/fpl_engine_cache_v2.pkl")
 CACHE_TTL_SECONDS = int(os.environ.get("FPL_CACHE_TTL", 6 * 60 * 60))  # 6h
@@ -883,9 +890,42 @@ def _avail_mult(chance, status):
         return 0.0 if status in ("s", "i", "u", "n") else 1.0
 
 
+def _defcon_bumps(hist, players_now):
+    """Per-player DefCon expected-value floor (DEF & MID only). Season-to-date rate of
+    clearing the DefCon threshold in started games x 2 pts, scaled by how often the
+    player starts. Encodes the ball-winner-vs-attacking-fullback distinction. Returns
+    {player_id: bump}. Any failure yields {} so predictions never break."""
+    try:
+        era = hist[hist["season"].isin(DEFCON_SEASONS)].copy()
+        if era.empty:
+            return {}
+        st = (pd.to_numeric(era["minutes"], errors="coerce").fillna(0) >= 60).astype(int)
+        thr = era["position"].map(DC_THRESH).fillna(12)
+        hit = ((pd.to_numeric(era["defensive_contribution"], errors="coerce") >= thr).astype(int)) * st
+        era = era.assign(_st=st, _hit=hit)
+        tot_st = int(era["_st"].sum())
+        prior = (float(era["_hit"].sum()) / tot_st) if tot_st else 0.0
+        ag = era.groupby("name_key").agg(_s=("_st", "sum"), _h=("_hit", "sum"))
+        ag["rate"] = (ag["_h"] + prior * DC_ALPHA) / (ag["_s"] + DC_ALPHA)
+        cur = hist[hist["season"] == CURRENT_SEASON].copy()
+        cst = (pd.to_numeric(cur["minutes"], errors="coerce").fillna(0) >= 60).astype(int)
+        startp = cur.assign(_st=cst).groupby("name_key")["_st"].mean()
+        ag["startp"] = startp.reindex(ag.index).fillna(0.6)
+        ag["bump"] = 2.0 * ag["rate"] * ag["startp"]
+        bump_by_name = ag["bump"].to_dict()
+        out = {}
+        for _, p in players_now.iterrows():
+            if p["position"] in ("DEF", "MID"):
+                out[p["player_id"]] = float(bump_by_name.get(p["name_key"], 0.0))
+        return out
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def predict_gw(players_now, fixtures, team_name_now, team_strength, recent, model, gw,
-               statuses, chances=None, damp=True):
+               statuses, chances=None, damp=True, defcon_bump=None):
     chances = chances or {}
+    defcon_bump = defcon_bump or {}
     r_idx = recent.set_index("name_key")
     opp = _opp_map(fixtures, team_name_now, gw)
     rows = []
@@ -906,6 +946,11 @@ def predict_gw(players_now, fixtures, team_name_now, team_strength, recent, mode
     if damp:
         pf["pred_points"] = [pp * _avail_mult(chances.get(pid), statuses.get(pid, "a"))
                              for pp, pid in zip(pf["pred_points"], pf["player_id"])]
+    # DefCon expected-value floor (DEF & MID), scaled by availability like the base.
+    if defcon_bump:
+        pf["pred_points"] = [
+            pp + defcon_bump.get(pid, 0.0) * (_avail_mult(chances.get(pid), statuses.get(pid, "a")) if damp else 1.0)
+            for pp, pid in zip(pf["pred_points"], pf["player_id"])]
     # Set-piece / penalty bump for nailed takers, from FPL's live order data. Only
     # credited to players already projected to feature (>1.5), so fringe names on a
     # pen list don't get inflated.
@@ -914,6 +959,8 @@ def predict_gw(players_now, fixtures, team_name_now, team_strength, recent, mode
                         pd.to_numeric(players_now["sp_bump"], errors="coerce").fillna(0.0)))
         pf["pred_points"] = [pp + (bmap.get(pid, 0.0) if pp > 1.5 else 0.0)
                              for pp, pid in zip(pf["pred_points"], pf["player_id"])]
+    # Floor at 0 -- no negative projections.
+    pf["pred_points"] = pd.to_numeric(pf["pred_points"], errors="coerce").fillna(0.0).clip(lower=0.0)
     return pf
 
 
@@ -1078,6 +1125,12 @@ def build_state(session_get=get_json) -> EngineState:
                 h = pd.DataFrame(j.get("history", []))
                 if h.empty:
                     continue
+                # Drop the upcoming UNPLAYED fixture row (FPL returns it with all-zero
+                # stats and a null scoreline); it would poison recent-form features.
+                if "team_h_score" in h.columns:
+                    h = h[pd.to_numeric(h["team_h_score"], errors="coerce").notna()]
+                if h.empty:
+                    continue
                 h["name"] = name_now.get(pid)
                 h["position"] = pos_now.get(pid)
                 h["team"] = None
@@ -1166,8 +1219,9 @@ def build_state(session_get=get_json) -> EngineState:
     # suspension flags are accurate before kickoff, so an injured player (e.g. Araujo,
     # unknown return) should be zeroed now, not just once the season starts. The graded
     # multiplier leaves fully available players (status "a") completely untouched.
+    defcon_bump = _defcon_bumps(hist, players_now)
     pred = predict_gw(players_now, fixtures, team_name_now, cur_only, recent, model, next_gw,
-                      statuses, chances=chances, damp=True)
+                      statuses, chances=chances, damp=True, defcon_bump=defcon_bump)
     own = dict(zip(players_now["player_id"], players_now["owned_pct"]))
     pred["owned_pct"] = pred["player_id"].map(own).fillna(0.0)
     pred = pred.sort_values("pred_points", ascending=False).reset_index(drop=True)
